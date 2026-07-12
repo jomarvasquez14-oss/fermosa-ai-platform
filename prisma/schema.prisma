@@ -1,0 +1,185 @@
+// -----------------------------------------------------------------------------
+// Fermosa AI Platform - Database Schema
+// PostgreSQL via Prisma ORM
+// -----------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum RoleName {
+  SUPER_ADMIN
+  AUDITOR
+  BRANCH_MANAGER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AuditSessionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum UploadStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+// ---------------------------------------------------------------------------
+// Identity & Access
+// ---------------------------------------------------------------------------
+
+model Role {
+  id          String   @id @default(cuid())
+  name        RoleName @unique
+  description String?
+  users       User[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  fullName     String     @map("full_name")
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  status       UserStatus @default(ACTIVE)
+
+  roleId String @map("role_id")
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  // Branch Managers are assigned to exactly one branch; other roles may be null.
+  branchId String? @map("branch_id")
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  auditSessions   AuditSession[]  @relation("AuditorSessions")
+  logbookUploads  LogbookUpload[] @relation("UploadedBy")
+  settingsUpdates SystemSetting[] @relation("SettingUpdatedBy")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([roleId])
+  @@index([branchId])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Organization
+// ---------------------------------------------------------------------------
+
+model Branch {
+  id      String       @id @default(cuid())
+  name    String
+  code    String       @unique
+  address String
+  status  BranchStatus @default(ACTIVE)
+
+  users          User[]
+  auditSessions  AuditSession[]
+  logbookUploads LogbookUpload[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("branches")
+}
+
+// ---------------------------------------------------------------------------
+// Audit Module (structure only — business logic arrives in Milestone 2)
+// ---------------------------------------------------------------------------
+
+model AuditSession {
+  id     String             @id @default(cuid())
+  status AuditSessionStatus @default(PENDING)
+  notes  String?
+
+  branchId String @map("branch_id")
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  auditorId String @map("auditor_id")
+  auditor   User   @relation("AuditorSessions", fields: [auditorId], references: [id], onDelete: Restrict)
+
+  logbookUploads LogbookUpload[]
+
+  scheduledFor DateTime? @map("scheduled_for")
+  startedAt    DateTime? @map("started_at")
+  completedAt  DateTime? @map("completed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([branchId])
+  @@index([auditorId])
+  @@index([status])
+  @@map("audit_sessions")
+}
+
+model LogbookUpload {
+  id         String       @id @default(cuid())
+  fileName   String       @map("file_name")
+  storageKey String       @map("storage_key")
+  mimeType   String?      @map("mime_type")
+  fileSize   Int?         @map("file_size")
+  status     UploadStatus @default(PENDING)
+
+  branchId String @map("branch_id")
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  uploadedById String @map("uploaded_by_id")
+  uploadedBy   User   @relation("UploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  auditSessionId String?       @map("audit_session_id")
+  auditSession   AuditSession? @relation(fields: [auditSessionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([branchId])
+  @@index([uploadedById])
+  @@index([auditSessionId])
+  @@index([status])
+  @@map("logbook_uploads")
+}
+
+// ---------------------------------------------------------------------------
+// Platform
+// ---------------------------------------------------------------------------
+
+model SystemSetting {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  value       Json
+  description String?
+
+  updatedById String? @map("updated_by_id")
+  updatedBy   User?   @relation("SettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}

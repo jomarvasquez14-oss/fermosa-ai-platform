@@ -1,0 +1,47 @@
+import "server-only";
+import { z } from "zod";
+import { ConfigurationError } from "@/lib/errors";
+
+/**
+ * Validated server environment.
+ *
+ * Call `getServerEnv()` instead of reading `process.env` in server code, so
+ * misconfiguration fails fast with a precise message instead of surfacing as
+ * a confusing downstream error. Validation is lazy (first call) and cached,
+ * which keeps `next build` independent of runtime-only variables.
+ *
+ * Never import this from client components — it is server-only by design.
+ */
+
+const serverEnvSchema = z.object({
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required (see .env.example)"),
+  AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
+  NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
+
+  // Architecture seams (Milestone 1.1) — which implementation the factories
+  // select once implementations exist. Defaults are the safest option.
+  CRM_CONNECTOR: z.enum(["browser-automation", "api", "mock"]).default("mock"),
+  AI_PROVIDER: z
+    .enum(["openai-vision", "claude", "gemini", "azure-openai"])
+    .default("openai-vision"),
+});
+
+export type ServerEnv = z.infer<typeof serverEnvSchema>;
+
+let cached: ServerEnv | null = null;
+
+export function getServerEnv(): ServerEnv {
+  if (cached) return cached;
+
+  const parsed = serverEnvSchema.safeParse(process.env);
+  if (!parsed.success) {
+    const details = parsed.error.issues
+      .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
+      .join("\n");
+    throw new ConfigurationError(`Invalid server environment:\n${details}`);
+  }
+
+  cached = parsed.data;
+  return cached;
+}

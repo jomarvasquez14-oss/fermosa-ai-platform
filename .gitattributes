@@ -1,0 +1,12 @@
+# Normalize line endings: store LF in the repository regardless of platform.
+* text=auto
+
+# Binary assets — never normalize.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
