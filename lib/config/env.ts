@@ -22,9 +22,17 @@ const serverEnvSchema = z.object({
   // Architecture seams (Milestone 1.1) — which implementation the factories
   // select once implementations exist. Defaults are the safest option.
   CRM_CONNECTOR: z.enum(["browser-automation", "api", "mock"]).default("mock"),
+  // Implemented providers: mock (3.0), claude (3.1). Others land in 3.x.
   AI_PROVIDER: z
-    .enum(["openai-vision", "claude", "gemini", "azure-openai"])
-    .default("openai-vision"),
+    .enum(["mock", "openai-vision", "claude", "gemini", "azure-openai"])
+    .default("mock"),
+  /** Required only when the Claude provider is actually invoked. */
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+
+  // Storage seam (Sprint 2A.2) — only "local" is implemented today.
+  STORAGE_PROVIDER: z.enum(["local", "s3", "azure-blob", "gcs", "r2", "supabase"]).default("local"),
+  /** Root directory for the local filesystem provider (gitignored). */
+  STORAGE_LOCAL_ROOT: z.string().min(1).default(".storage"),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

@@ -5,28 +5,35 @@
 >
 > Format: Status · Context · Decision · Consequences. Keep each record short enough to read in a minute.
 
-| #                                                                         | Decision                                                | Status   |
-| ------------------------------------------------------------------------- | ------------------------------------------------------- | -------- |
-| [ADR-001](#adr-001-modular-monolith)                                      | Modular monolith over microservices                     | Accepted |
-| [ADR-002](#adr-002-nextjs-app-router-as-full-stack-framework)             | Next.js App Router as the full-stack framework          | Accepted |
-| [ADR-003](#adr-003-feature-based-architecture-with-a-service-layer)       | Feature-based architecture with a service layer         | Accepted |
-| [ADR-004](#adr-004-authjs-v5-with-credentials-provider)                   | Auth.js v5 with a Credentials provider (interim)        | Accepted |
-| [ADR-005](#adr-005-jwt-sessions-over-database-sessions)                   | JWT sessions over database sessions                     | Accepted |
-| [ADR-006](#adr-006-split-auth-configuration-for-the-edge-runtime)         | Split auth configuration for the Edge runtime           | Accepted |
-| [ADR-007](#adr-007-permission-based-authorization-over-role-checks)       | Permission-based authorization over role checks         | Accepted |
-| [ADR-008](#adr-008-role-as-a-table-backed-by-a-closed-enum)               | `Role` as a table backed by a closed enum               | Accepted |
-| [ADR-009](#adr-009-cuid-primary-keys-and-snake_case-column-mapping)       | cuid primary keys and snake_case column mapping         | Accepted |
-| [ADR-010](#adr-010-restrictive-delete-rules-around-audit-records)         | Restrictive delete rules around audit records           | Accepted |
-| [ADR-011](#adr-011-transport-based-in-house-logger)                       | Transport-based in-house logger (no vendor yet)         | Accepted |
-| [ADR-012](#adr-012-tailwind-v4--shadcnui-with-token-only-styling)         | Tailwind v4 + shadcn/ui with token-only styling         | Accepted |
-| [ADR-013](#adr-013-client-side-app-shell-components)                      | Client-side app-shell components                        | Accepted |
-| [ADR-014](#adr-014-pnpm-with-explicit-build-script-approvals)             | pnpm with explicit build-script approvals               | Accepted |
-| [ADR-015](#adr-015-interface-first-capability-seams-dependency-inversion) | Interface-first capability seams (dependency inversion) | Accepted |
-| [ADR-016](#adr-016-crm-access-via-the-strategy-pattern)                   | CRM access via the Strategy pattern                     | Accepted |
-| [ADR-017](#adr-017-provider-independent-ai-layer)                         | Provider-independent AI layer                           | Accepted |
-| [ADR-018](#adr-018-typed-in-process-event-bus)                            | Typed in-process event bus (no message broker)          | Accepted |
-| [ADR-019](#adr-019-no-empty-feature-stubs--modules-are-created-on-demand) | No empty feature stubs — modules are created on demand  | Accepted |
-| [ADR-020](#adr-020-validated-lazy-server-environment)                     | Validated, lazy server environment                      | Accepted |
+| #                                                                                       | Decision                                                | Status   |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------- | -------- |
+| [ADR-001](#adr-001-modular-monolith)                                                    | Modular monolith over microservices                     | Accepted |
+| [ADR-002](#adr-002-nextjs-app-router-as-full-stack-framework)                           | Next.js App Router as the full-stack framework          | Accepted |
+| [ADR-003](#adr-003-feature-based-architecture-with-a-service-layer)                     | Feature-based architecture with a service layer         | Accepted |
+| [ADR-004](#adr-004-authjs-v5-with-credentials-provider)                                 | Auth.js v5 with a Credentials provider (interim)        | Accepted |
+| [ADR-005](#adr-005-jwt-sessions-over-database-sessions)                                 | JWT sessions over database sessions                     | Accepted |
+| [ADR-006](#adr-006-split-auth-configuration-for-the-edge-runtime)                       | Split auth configuration for the Edge runtime           | Accepted |
+| [ADR-007](#adr-007-permission-based-authorization-over-role-checks)                     | Permission-based authorization over role checks         | Accepted |
+| [ADR-008](#adr-008-role-as-a-table-backed-by-a-closed-enum)                             | `Role` as a table backed by a closed enum               | Accepted |
+| [ADR-009](#adr-009-cuid-primary-keys-and-snake_case-column-mapping)                     | cuid primary keys and snake_case column mapping         | Accepted |
+| [ADR-010](#adr-010-restrictive-delete-rules-around-audit-records)                       | Restrictive delete rules around audit records           | Accepted |
+| [ADR-011](#adr-011-transport-based-in-house-logger)                                     | Transport-based in-house logger (no vendor yet)         | Accepted |
+| [ADR-012](#adr-012-tailwind-v4--shadcnui-with-token-only-styling)                       | Tailwind v4 + shadcn/ui with token-only styling         | Accepted |
+| [ADR-013](#adr-013-client-side-app-shell-components)                                    | Client-side app-shell components                        | Accepted |
+| [ADR-014](#adr-014-pnpm-with-explicit-build-script-approvals)                           | pnpm with explicit build-script approvals               | Accepted |
+| [ADR-015](#adr-015-interface-first-capability-seams-dependency-inversion)               | Interface-first capability seams (dependency inversion) | Accepted |
+| [ADR-016](#adr-016-crm-access-via-the-strategy-pattern)                                 | CRM access via the Strategy pattern                     | Accepted |
+| [ADR-017](#adr-017-provider-independent-ai-layer)                                       | Provider-independent AI layer                           | Accepted |
+| [ADR-018](#adr-018-typed-in-process-event-bus)                                          | Typed in-process event bus (no message broker)          | Accepted |
+| [ADR-019](#adr-019-no-empty-feature-stubs--modules-are-created-on-demand)               | No empty feature stubs — modules are created on demand  | Accepted |
+| [ADR-020](#adr-020-validated-lazy-server-environment)                                   | Validated, lazy server environment                      | Accepted |
+| [ADR-021](#adr-021-client-only-ephemeral-upload-staging-sprint-2a1)                     | Client-only, ephemeral upload staging (Sprint 2A.1)     | Accepted |
+| [ADR-022](#adr-022-vitest--react-testing-library-for-component-tests)                   | Vitest + React Testing Library for component tests      | Accepted |
+| [ADR-023](#adr-023-auditsubmission-as-the-audit-aggregate-root)                         | AuditSubmission as the audit aggregate root             | Accepted |
+| [ADR-024](#adr-024-storage-provider-abstraction-with-a-local-filesystem-backend)        | Storage provider abstraction (local backend first)      | Accepted |
+| [ADR-025](#adr-025-draft-persistence-model-and-post-submit-immutability-enforcement)    | Draft persistence + post-submit immutability            | Accepted |
+| [ADR-026](#adr-026-ocr-architecture--versioned-prompts-wrapped-fields-recorded-costs)   | OCR architecture (prompts, fields, cost records)        | Accepted |
+| [ADR-027](#adr-027-crm-discovery--read-only-connector-over-a-normalized-snapshot-model) | CRM Discovery: read-only connector, snapshot model      | Accepted |
 
 All records below dated **2026-07-12** (ADR-001…014: Milestone 1; ADR-015…020: Milestone 1.1) unless noted.
 
@@ -360,3 +367,202 @@ variables. Client code continues to see only `NEXT_PUBLIC_*` via normal Next.js 
 is now the documented, typed catalog of server configuration alongside `.env.example`.
 Pre-existing direct reads (logger level, site URL fallback) remain valid but new server
 code should prefer `getServerEnv()`.
+
+## ADR-021: Client-only, ephemeral upload staging (Sprint 2A.1)
+
+**Status:** Accepted _(2026-07-13, Sprint 2A.1)_
+
+**Context:** The sprint mandate was the upload _experience_ with zero backend: no
+files saved, no records created. The UI still needs real state — validation, ordering,
+rotation, previews — that later sprints must be able to persist without a rewrite.
+
+**Decision:** The batch lives entirely in client memory: `File` objects + object URLs in
+`hooks/use-image-upload.ts`, reusable presentation in `components/upload/`, and one
+integration seam (`handleContinue`) where the 2A.2 server action will plug in.
+Validation (10 MB/file, 20 images, JPG/PNG/HEIC, per-file rejection, duplicate detection
+by name+size+lastModified) is a pure module reusable verbatim on the server. Rotation is
+CSS-only metadata. "Continue" tells the truth: a toast stating nothing was saved.
+
+**Consequences:** Zero backend surface to secure or migrate later; refreshing the page
+intentionally discards the batch (acceptable — staging is seconds of work). The hook
+computes state via a write-through ref rather than functional updaters, because adding
+files has side effects (object-URL creation, rejection reporting) and React StrictMode
+double-invokes updaters — this bug was caught live during browser verification.
+
+## ADR-022: Vitest + React Testing Library for component tests
+
+**Status:** Accepted _(2026-07-13, Sprint 2A.1)_
+
+**Context:** The roadmap flagged tests as blocking before M2 mutations; Sprint 2A.1
+introduced the first logic worth testing (validation rules, batch state). Jest's ESM/
+Next-15 story is clunky; Vitest shares the Vite/esbuild toolchain and runs TSX natively.
+
+**Decision:** Vitest (jsdom environment, explicit imports — no globals) with React
+Testing Library. `vitest.setup.ts` shims object URLs/matchMedia and registers RTL
+cleanup (auto-cleanup needs test globals, which are off). Tests are colocated
+(`*.test.ts(x)`); `pnpm test` joins the quality gate for code with test coverage.
+
+**Consequences:** 25 tests ship with the sprint; the pure-function pattern
+(validation.ts) is now the house style for testable logic. E2E testing remains open —
+the Playwright verification script used this sprint lives outside the repo; adopting it
+as a real e2e suite is a candidate for 2A.2+.
+
+## ADR-023: AuditSubmission as the audit aggregate root
+
+**Status:** Accepted _(2026-07-13, Sprint 2A.1.5 — supersedes the M1 audit entity design; delete-rule intent of ADR-010 carries over unchanged)_
+
+**Context:** The M1 schema modeled the audit module auditor-first: an `AuditSession`
+(auditor + `scheduledFor`) containing `LogbookUpload`s that could float unattached
+(`auditSessionId` nullable). Studying the real branch workflow for Sprint 2A
+(select audit date → upload images → review → submit → OCR → OCR review → CRM
+comparison → report) showed the anchor is a **branch-initiated act**, not an auditor's
+working period — and persistence (2A.2) was about to freeze the wrong model. Candidates
+evaluated: Upload Batch (transport packaging, not a business act), Audit Session
+(auditor-centric container for what is actually one stage), Audit Job (infrastructure
+framing), Audit Submission.
+
+**Decision:** `AuditSubmission` — one branch's logbook submission for one audit date —
+is the aggregate root; `LogbookImage` (renamed from `LogbookUpload`: "upload" names the
+transfer event, not the thing) is owned by it (`Cascade`), always ordered
+(`displayOrder`, from which page numbers are derived), and never reachable outside it.
+Branch and User are referenced with `Restrict` (audit trail, ADR-010). Lifecycles are
+formal state machines in docs/DOMAIN_MODEL.md (§5): forward-only after SUBMITTED,
+failures return to the preceding reviewable state, CANCELLED only before machine
+processing. Future entities (OcrResult, CrmComparison, AuditReport) are specified in
+DOMAIN_MODEL.md but not persisted until their milestone (ADR-019). The unimplemented
+`AuditService` contract and event catalog were re-termed to match (free per ADR-015 —
+nothing implements them yet). DOMAIN_MODEL.md is the authoritative business model;
+schema and code follow it.
+
+**Consequences:** 2A.2 persistence lands on a model that matches the workflow instead of
+contradicting it; no floating uploads, no auditor-required-at-creation. The empty M1
+tables were dropped in migration `20260712231752_audit_submission_domain_model` — zero
+data risk today, which is precisely why this review happened _before_ 2A.2. Open
+questions that must be settled early in 2A.2 are recorded in DOMAIN_MODEL.md §8
+(draft-persistence timing foremost).
+
+## ADR-024: Storage provider abstraction with a local filesystem backend
+
+**Status:** Accepted _(2026-07-13, Sprint 2A.2)_
+
+**Context:** Sprint 2A.2 persists logbook image binaries. Cloud object storage
+(S3/Azure/GCS/R2/Supabase) is the production destination but is not yet chosen, and
+PROJECT_RULES 13 forbids binaries in PostgreSQL. Coupling upload code to any vendor SDK
+now would make the storage decision a refactor instead of a configuration change.
+
+**Decision:** `services/storage/` follows the established seam pattern (ADR-015): a
+`StorageProvider` interface (`put`/`get`/`exists`/`delete`, Buffer-based — objects are
+≤10 MB images), a `getStorageProvider()` factory selected by `STORAGE_PROVIDER` env
+(default `local`), and one real implementation: `LocalStorageProvider` writing under the
+gitignored `STORAGE_LOCAL_ROOT` with a `.meta.json` sidecar for content type. Keys are
+opaque internal paths (`submissions/<submissionId>/<imageId>`); implementations must
+reject traversal. `put` overwrites silently so upload retries are idempotent. Unbuilt
+backends throw `NotImplementedError`.
+
+**Consequences:** Adopting S3 later is one new class plus one env var. The local backend
+makes single-node deployments and dev fully functional offline. Buffer (not stream) API
+is a deliberate simplification recorded in the interface contract — revisit via ADR if
+objects outgrow images.
+
+## ADR-025: Draft persistence model and post-submit immutability enforcement
+
+**Status:** Accepted _(2026-07-13, Sprint 2A.2 — resolves DOMAIN_MODEL.md §8 risk 1)_
+
+**Context:** The domain model left open when a draft becomes a database row. Sprint 2A.2
+also had to translate "submitted evidence is never modified" from documentation into
+enforced behavior, and record business events (audit trail).
+
+**Decision:**
+
+1. **Drafts persist on first save, not first keystroke.** A new submission stages images
+   client-side (2A.1 behavior preserved); "Save draft"/"Submit" creates the
+   `AuditSubmission` row and uploads images one server-action call each (per-image
+   failure isolation + retry; metadata rows survive storage failures as
+   `UPLOAD_FAILED`). Reopened drafts restore date, images, order, and rotation from the
+   server; further adds upload on the next save, removals apply immediately.
+2. **Immutability is enforced in the service layer**, not the UI: every mutation path
+   loads the aggregate via a guard that rejects non-DRAFT/UPLOADING states with
+   `InvalidStateError`; submit itself re-checks status inside the transaction
+   (`updateMany` with a status predicate) so concurrent submits cannot double-fire.
+3. **`AuditTrailEntry`** (append-only, Cascade within the aggregate, Restrict on actor)
+   records SUBMISSION_CREATED / DRAFT_SAVED / SUBMISSION_SUBMITTED / IMAGE_ADDED /
+   IMAGE_REMOVED / IMAGE_REORDERED with IDs-only metadata. The event bus additionally
+   publishes `submission.submitted` and `logbook.image.stored` for in-process reactions
+   (ADR-018) — trail = record, bus = notification.
+4. **Authorization is data-layer and testable**: service methods take an explicit
+   `Actor` (id/role/branchId); Branch Managers are scoped to their branch, Auditors are
+   read-only, Super Admins have full access. Unauthorized reads return NOT_FOUND, never
+   confirming existence.
+
+**Consequences:** No junk rows from abandoned date-picking; a crashed upload session
+loses at most not-yet-uploaded files, never server state. The 2A.1 ephemeral-batch model
+(ADR-021) is superseded for persistence but its UI and validation carry over intact.
+Image binaries are served through an authenticated route handler
+(`/api/images/[imageId]`) scoped exactly like submission reads.
+
+## ADR-026: OCR architecture — versioned prompts, wrapped fields, recorded costs
+
+**Status:** Accepted _(2026-07-13, Sprint 2B.0 — design only; implementation lands in Sprint 2B)_
+
+**Context:** Sprint 2B implements OCR over submitted logbook images. Before any
+provider code exists, the shape of the system had to be fixed: how provider
+independence is preserved in practice, how prompt changes stay accountable, how
+uncertainty is represented, and how cost is attributed — all cheap to decide now,
+expensive to retrofit.
+
+**Decision:** docs/OCR_ARCHITECTURE.md is the binding blueprint. Its load-bearing
+choices: (1) OCR consumes the existing `AIProvider` seam; adapters translate to the
+canonical schema at the boundary, and a deterministic `mock` provider ships first.
+(2) Prompts are immutable versioned artifacts (`services/ai/prompts/<family>/v###.md`);
+every request records prompt version + model + provider, enabling reproduction and A/B
+comparison. (3) Extraction output wraps every field as
+`{value, confidence, unreadable}` — per-field uncertainty is the unit the review UI,
+partial extraction, and calibration all operate on; entry/page confidence aggregates by
+`min()`. (4) Confidence bands (auto-accept ≥0.95 / highlight 0.80–0.94 / manual <0.80)
+live in `SystemSetting`, and nothing bypasses human review in v1 — model confidence is
+treated as uncalibrated until review verdicts accumulate. (5) One image = one request =
+one `OcrResult` attempt; retries (max 3, backoff), a single JSON-repair pass, and
+provider fallback are all recorded; unreadable handwriting is a review outcome, not an
+error. (6) Every provider call writes a future `AiUsageRecord` (tokens, estimated cost,
+latency) via a decorator at the AI boundary. (7) OCR never mutates submitted evidence;
+downstream stages consume human-confirmed data only.
+
+**Consequences:** Provider choice stays an env var; prompt regressions are diagnosable
+and reversible; cost history exists from the first call. The known gap is explicit:
+the real logbook page layout is unconfirmed — obtaining sample pages is the gating
+input for prompt v001 (OCR_ARCHITECTURE §11). PROJECT_RULES gains the AI-call
+recording rule (rule 23).
+
+## ADR-027: CRM Discovery — read-only connector over a normalized snapshot model
+
+**Status:** Accepted _(2026-07-13, Sprint 2B.1 — design only; implementation lands in Sprint 3)_
+
+**Context:** The matching engine needs authoritative CRM facts (patient, treatments,
+invoices, activity). The production CRM (`fermosaskincareclinic.com`) is a
+server-rendered, session-cookie application with no API — reviewed via saved HTML
+exports of its Dashboard, Patients Management, Patient Profile, Invoice, and Activity
+Logs pages. The design had to fix, before any automation exists: what shape the rest
+of the platform consumes, how browser automation stays maintainable against unversioned
+markup, and how an eventual API swap costs nothing.
+
+**Decision:** docs/CRM_DISCOVERY.md is the binding blueprint. Load-bearing choices:
+(1) the `CRMConnector` contract narrows to three methods — `healthCheck`,
+`findPatients`, `fetchPatientRecord` — speaking only the `NormalizedCrmPatientRecord`
+model; pages, sessions, and selectors are invisible outside `services/crm/`.
+(2) The connector is **read-only by contract**: search POSTs and GETs only, never the
+CRM's mutating routes (lock/restore/create/deletion-request). (3) Every retrieval is a
+**snapshot** stamped with `retrievedAt` + connector kind + selector-map version, stored
+on `CrmComparison` so comparisons stay reproducible after the CRM changes — selector
+maps are versioned artifacts, mirroring OCR prompt versioning (ADR-026). (4) Business
+outcomes are data, not exceptions: `not-found` and `ambiguous` (with candidates, never
+auto-picked) flow to review; only infrastructure failures throw (`CRM_UNAVAILABLE`,
+`CRM_FORBIDDEN`, `CRM_LAYOUT`, `CRM_SESSION`), with layout drift detected by structural
+fingerprints before parsing. (5) A PII-free `mock` connector modeled on the exports
+ships first, so Sprint 4 matching develops without touching the real CRM. (6) CRM
+patient identity is the `cid`, never names — exports show heavy name noise.
+
+**Consequences:** Swapping browser automation for an API is one adapter + one env var;
+matching is unblocked before automation exists. Costs accepted: selector maintenance is
+recurring work, and discovery inherits gating inputs — the unexported login page, the
+USER-column semantics question, and a sanctioned read-only service account
+(CRM_DISCOVERY §8). PROJECT_RULES gains rule 24 (CRM access constraints).

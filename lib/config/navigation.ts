@@ -1,7 +1,9 @@
 import {
   Building2,
   ClipboardCheck,
+  DatabaseZap,
   FileBarChart,
+  FlaskConical,
   LayoutDashboard,
   Settings,
   Users,
@@ -35,6 +37,18 @@ export const MAIN_NAV: readonly NavItem[] = [
   { title: "Branches", href: "/branches", icon: Building2 },
   { title: "Users", href: "/users", icon: Users, roles: [ROLES.SUPER_ADMIN] },
   { title: "Settings", href: "/settings", icon: Settings, roles: [ROLES.SUPER_ADMIN] },
+  {
+    title: "AI Playground",
+    href: "/playground",
+    icon: FlaskConical,
+    roles: [ROLES.SUPER_ADMIN],
+  },
+  {
+    title: "CRM Dev",
+    href: "/dev/crm",
+    icon: DatabaseZap,
+    roles: [ROLES.SUPER_ADMIN],
+  },
 ];
 
 export function getNavForRole(role: AppRole): NavItem[] {

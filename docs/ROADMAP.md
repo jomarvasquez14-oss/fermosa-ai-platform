@@ -6,15 +6,25 @@
 
 ## Summary
 
-| Milestone  | Theme                                               | Status                       |
-| ---------- | --------------------------------------------------- | ---------------------------- |
-| **M1**     | Platform foundation                                 | ✅ **Complete** (2026-07-12) |
-| **M1.1**   | Architecture refinement (seams, events, AI rules)   | ✅ **Complete** (2026-07-12) |
-| **M2**     | Audit module core                                   | Next                         |
-| **M3**     | AI-assisted auditing                                | Planned                      |
-| **M4**     | Reports & administration                            | Planned                      |
-| **M5+**    | Adjacent modules (CRM, Inventory, Sales, Marketing) | Future                       |
-| Continuous | Hardening & operations                              | Ongoing                      |
+| Milestone       | Theme                                               | Status                       |
+| --------------- | --------------------------------------------------- | ---------------------------- |
+| **M1**          | Platform foundation                                 | ✅ **Complete** (2026-07-12) |
+| **M1.1**        | Architecture refinement (seams, events, AI rules)   | ✅ **Complete** (2026-07-12) |
+| **M2 / 2A.1**   | Audit: upload interface (UI only)                   | ✅ **Complete** (2026-07-13) |
+| **M2 / 2A.1.5** | Audit: domain model review (no new functionality)   | ✅ **Complete** (2026-07-13) |
+| **M2 / 2A.2**   | Audit: submission persistence (first real data)     | ✅ **Complete** (2026-07-13) |
+| **M2 / 2B.0**   | Audit: OCR architecture design (no implementation)  | ✅ **Complete** (2026-07-13) |
+| **M2 / 2B.1**   | CRM Discovery architecture (no implementation)      | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.0**    | AI Playground (mock provider, dev tooling)          | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.1**    | Claude vision provider (playground-only)            | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.2**    | OCR calibration (rig ready — awaiting samples/key)  | ⏸ **Blocked on inputs**      |
+| **M3 / 3.3**    | OCR review interface (mock data)                    | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.4**    | Mock CRM connector + /dev/crm tooling               | ✅ **Complete** (2026-07-13) |
+| **M2**          | Audit module core                                   | Next                         |
+| **M3**          | AI-assisted auditing                                | Planned                      |
+| **M4**          | Reports & administration                            | Planned                      |
+| **M5+**         | Adjacent modules (CRM, Inventory, Sales, Marketing) | Future                       |
+| Continuous      | Hardening & operations                              | Ongoing                      |
 
 ---
 
@@ -62,22 +72,103 @@ Dashboard, HR, Accounting — all follow the same module playbook when scheduled
 Goal: a Branch Manager can upload logbooks; an Auditor can run an audit session against
 them; management sees real numbers on the dashboard.
 
-- **Logbook upload intake** — file upload to object storage (S3/Azure Blob), `storageKey`
-  persistence, upload listing per branch, status lifecycle
-  (`PENDING → PROCESSING → PROCESSED/FAILED`).
-- **Audit sessions** — create/schedule sessions, assign auditor, attach uploads, record
-  notes, drive the `PENDING → IN_PROGRESS → COMPLETED/CANCELLED` lifecycle.
-- **Branch scoping in anger** — Branch Managers see only their branch's uploads and
-  sessions (service-layer enforcement, already stubbed in `branchService`).
+**Sprint 2A.1 — Upload interface ✅** (2026-07-13, see
+[MILESTONES/M002A1.md](MILESTONES/M002A1.md)): `/audit/new` behind the new
+`audit:upload` permission; reusable upload kit (`components/upload/`) with drag-drop,
+camera capture, per-file validation (10 MB / 20 images / JPG-PNG-HEIC), preview dialog
+with zoom + visual rotation, reordering; Vitest test infrastructure (ADR-022; 25 tests).
+Deliberately no persistence — `handleContinue()` is the 2A.2 seam. Side effects of the
+sprint: local PostgreSQL provisioned, initial migration + seed applied, and the login
+path verified end-to-end in a real browser (closes two M1 follow-ups; CI and secret
+rotation remain).
+
+**Sprint 2A.1.5 — Domain model review ✅** (2026-07-13, ADR-023): studied the real
+branch workflow and re-founded the audit entities before persistence could freeze the
+wrong model. `AuditSubmission` (branch + audit date) is the aggregate root owning
+ordered `LogbookImage`s; formal state machines, aggregate boundaries, naming decisions,
+glossary, and 2A.2 risks live in the new authoritative
+[DOMAIN_MODEL.md](DOMAIN_MODEL.md). Schema migrated
+(`20260712231752_audit_submission_domain_model`, old empty tables dropped); the
+unimplemented `AuditService` contract and event catalog re-termed to match. No new
+functionality.
+
+**Sprint 2A.2 — Submission persistence ✅** (2026-07-13, ADR-024/025, see
+[MILESTONES/M002A2.md](MILESTONES/M002A2.md)): the platform's first real business data.
+`StorageProvider` seam with a local-filesystem backend; draft submissions that persist
+on first save and reopen losslessly; per-image uploads with individual retry; service-
+layer branch scoping and post-submit immutability (locking verified by integration
+tests); `AuditTrailEntry` business-event log; authenticated image delivery; submission
+list/editor/read-only views. Draft-persistence timing resolved (DOMAIN_MODEL §8.1).
+
+**Sprint 2B.0 — OCR architecture design ✅** (2026-07-13, ADR-026): the binding OCR
+blueprint in [OCR_ARCHITECTURE.md](OCR_ARCHITECTURE.md) — provider-independent pipeline
+over the `AIProvider` seam, immutable versioned prompts, per-field
+`{value, confidence, unreadable}` extraction schema, SystemSetting-backed confidence
+bands (0.95 / 0.80), per-image retry + JSON-repair error recovery, and `AiUsageRecord`
+cost tracking. No implementation. **Gating input for 2B: sample logbook pages**
+(OCR_ARCHITECTURE §11.1).
+
+**Sprint 2B.1 — CRM Discovery architecture ✅** (2026-07-13, ADR-027): the binding CRM
+blueprint in [CRM_DISCOVERY.md](CRM_DISCOVERY.md), grounded in HTML exports of the
+production CRM — navigation map, `NormalizedCrmPatientRecord` snapshot model,
+three-method read-only `CRMConnector` contract shared by browser-automation and future
+API implementations, session/retry/drift strategy, and outcome-based error model. No
+implementation. **Gating inputs for Sprint 3: login-page capture, USER-column
+semantics, sanctioned read-only service account** (CRM_DISCOVERY §8).
+
+**Remaining M2 scope (2B+):**
+
 - **Dashboard goes live** — replace placeholder stats with real aggregates via the
-  service layer; real recent-activity feed.
-- **Foundational additions**: `AuditLog` table (who did what, when), object-storage
-  service abstraction, decision on upload-then-attach vs. session-first flow (blocks
-  upload UX design).
+  service layer; real recent-activity feed (submission trail is already recorded).
+- **Auditor review stages** and the submission lifecycle through `COMPLETED` (follows
+  the OCR sprints).
+- **Cloud storage backend** (S3/Azure/GCS/R2/Supabase) when a vendor is chosen — one
+  class + one env var (ADR-024).
 
 Out of scope for M2: OCR, AI analysis, exports.
 
 ## M3 — AI-Assisted Auditing
+
+**Sprint 3.0 — AI Playground ✅** (2026-07-13, see
+[MILESTONES/M0030.md](MILESTONES/M0030.md)): first implementation on the AI seam. The
+canonical OCR Zod schema, the refined `extractLogbook` contract, the prompt-artifact
+registry (`logbook-extraction/v001`, draft), and a deterministic **mock provider**
+(clean / messy / malformed models) — all exercised through a Super-Admin-only
+`/playground` module showing raw response, parsed JSON, validation issues, latency,
+tokens, and estimated cost. No external AI calls. Real providers (3.x) implement the
+already-exercised contract.
+
+**Sprint 3.1 — Claude vision provider ✅** (2026-07-13, see
+[MILESTONES/M0031.md](MILESTONES/M0031.md)): `ClaudeVisionProvider` behind the
+unchanged `AIProvider` interface — versioned prompt from the registry, canonical-schema
+validation at the boundary, friendly error mapping (auth/rate-limit/timeout/bad-image),
+token + estimated-cost capture, `ANTHROPIC_API_KEY` via validated env with graceful
+no-key failure. Playground-only: the audit workflow still makes zero AI calls. SDK
+fully mocked in tests (suite: 63). First real run awaits logbook samples + an API key.
+
+**Sprint 3.2 — OCR calibration ⏸** (rig complete, blocked on inputs): calibration
+runner + ground-truth workflow + [OCR_EVALUATION.md](OCR_EVALUATION.md) skeleton with
+the ready-for-production checklist. Awaiting real logbook samples (`ocr-samples/`,
+gitignored) and `ANTHROPIC_API_KEY` — accuracy numbers are only ever measured, never
+estimated.
+
+**Sprint 3.3 — OCR review interface ✅** (2026-07-13, see
+[MILESTONES/M0033.md](MILESTONES/M0033.md)): the reusable review kit
+(`components/ocr-review/`) + `useOcrReview` hook + `/audit/[id]/review` route
+(`audit:manage`). Per-field accept/edit/unreadable with band-colored highlighting
+(§5 thresholds), pre-acceptance at ≥ 0.95, corrections preserved beside OCR originals,
+confirm gated on full resolution, page-by-page navigation beside the original evidence.
+Runs on labeled mock extractions; persistence of review verdicts ships with OCR
+integration. Suite: 81 tests.
+
+**Sprint 3.4 — Mock CRM connector ✅** (2026-07-13, see
+[MILESTONES/M0034.md](MILESTONES/M0034.md)): the ADR-027 contract realized in code —
+`findPatients`/`fetchPatientRecord` over the Zod-validated
+`NormalizedCrmPatientRecord`, a `fixtures/v1` dataset covering all eight matching
+scenarios (duplicates, missing invoice, deleted/edited treatments, …), typed
+infrastructure-error simulation, and the Super-Admin `/dev/crm` inspector. The live
+CRM is never touched; Sprint 4 matching develops entirely against this connector.
+Suite: 96 tests.
 
 Goal: reduce manual review effort on uploaded logbooks.
 
@@ -109,8 +200,8 @@ until the audit vertical is proven.
 
 Not milestone-gated; picked up as capacity allows, priority rises with usage:
 
-- Test infrastructure (unit + e2e) — the codebase currently has no tests; this becomes
-  blocking before M2 mutations ship.
+- Test infrastructure: unit/component testing shipped in Sprint 2A.1 (Vitest + RTL,
+  ADR-022). E2E remains open — adopt a Playwright suite before M2 mutations ship.
 - External log/error sink (implement a `LogTransport` for Datadog/Sentry/Axiom).
 - Rate limiting and login attempt throttling.
 - Backup/restore and migration-rollback runbooks.

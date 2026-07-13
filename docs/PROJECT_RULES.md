@@ -48,51 +48,67 @@
     into them use `Restrict`. Users and branches are deactivated via `status`, not
     removed. (ADR-010.)
 13. **File binaries never enter PostgreSQL** — object storage keys only
-    (`LogbookUpload.storageKey`).
-14. **The seed stays idempotent.** Running `pnpm db:seed` twice must be safe.
+    (`LogbookImage.storageKey`).
+14. **The audit domain model is authoritative.** Entity names, aggregate boundaries,
+    and state transitions follow [DOMAIN_MODEL.md](DOMAIN_MODEL.md) (ADR-023); code
+    that disagrees with it is a bug. Model changes update that document first, with an
+    ADR.
+15. **The seed stays idempotent.** Running `pnpm db:seed` twice must be safe.
 
 ## Quality Gates
 
-15. **A change merges only when `pnpm typecheck`, `pnpm lint`, and `pnpm build` all pass**
+16. **A change merges only when `pnpm typecheck`, `pnpm lint`, and `pnpm build` all pass**
     (run manually until CI exists; CI adoption is an M1 follow-up in
     [ROADMAP.md](ROADMAP.md)).
-16. **Strictness is never lowered to make code compile.** No disabling TypeScript strict
+17. **Strictness is never lowered to make code compile.** No disabling TypeScript strict
     flags, no `eslint-disable` without an inline justification comment, no
     `ignoreBuildErrors`.
-17. **UI changes are verified in the running app** at mobile (375px) and desktop widths,
+18. **UI changes are verified in the running app** at mobile (375px) and desktop widths,
     in both light and dark themes. Token-only styling (no hard-coded colors) is a merge
     requirement.
-18. **New primitives come from shadcn, not hand-rolled lookalikes**, and land in
+19. **New primitives come from shadcn, not hand-rolled lookalikes**, and land in
     `components/ui`.
 
 ## Extensibility Seams
 
-23. **Swappable capabilities are consumed through their interfaces only.** AI goes
+20. **Swappable capabilities are consumed through their interfaces only.** AI goes
     through `AIProvider` via `getAIProvider()`; CRM goes through `CRMConnector` via
-    `getCRMConnector()`; the audit pipeline through `AuditService`. Provider SDKs,
-    provider/model names, and connector kinds never appear outside `services/ai/` and
-    `services/crm/` respectively. (ADR-015…017.)
-24. **Cross-module reactions go through the event bus** (`lib/events`), with payloads
+    `getCRMConnector()`; the audit pipeline through `AuditService`; binary storage
+    through `StorageProvider` via `getStorageProvider()`. Provider SDKs, provider/model
+    names, connector kinds, and storage backends never appear outside their own
+    `services/<seam>/` folder. (ADR-015…017, ADR-024.)
+21. **Cross-module reactions go through the event bus** (`lib/events`), with payloads
     carrying IDs only. Events are notifications — state that must survive a restart
     lives in the database. (ADR-018.)
-25. **Unimplemented seams throw `NotImplementedError`** — never fake success, never
+22. **Unimplemented seams throw `NotImplementedError`** — never fake success, never
     silent stubs.
+23. **Every AI call is accountable.** Prompts are immutable versioned artifacts
+    (`services/ai/prompts/<family>/v###.md`); every provider request records prompt
+    version, model, and provider (plus tokens/cost/latency once available), and AI
+    output is validated against a schema at the provider boundary. Extractions never
+    bypass human review, and raw AI output is never presented as confirmed data.
+    ([OCR_ARCHITECTURE.md](OCR_ARCHITECTURE.md), ADR-026.)
+24. **CRM access is read-only, snapshotted, and PII-safe.** The connector never calls
+    a mutating CRM route; every retrieval is stamped (`retrievedAt`, connector kind,
+    selector-map version) and consumers read snapshots, not live pages. CRM page
+    exports and captures never enter the repository; patient contact fields are
+    masked in UIs by default. ([CRM_DISCOVERY.md](CRM_DISCOVERY.md), ADR-027.)
 
 ## Documentation & Process
 
-19. **Docs move with the code.** A change that alters architecture, access control, the
+25. **Docs move with the code.** A change that alters architecture, access control, the
     schema, or conventions updates the relevant `docs/` file in the same change. The docs
     set (`ARCHITECTURE`, `PRODUCT`, `ROADMAP`, `CODING_STANDARDS`, `DECISIONS`,
-    `PROJECT_RULES`, `AI_RULES`, `DATABASE`, `DEVELOPMENT`) is part of the codebase, not
-    an appendix. AI-assisted contributors additionally follow
+    `PROJECT_RULES`, `AI_RULES`, `DOMAIN_MODEL`, `OCR_ARCHITECTURE`, `CRM_DISCOVERY`,
+    `DATABASE`, `DEVELOPMENT`) is part of the codebase, not an appendix. AI-assisted contributors additionally follow
     [AI_RULES.md](AI_RULES.md).
-20. **Significant decisions get an ADR** — append-only, in
+26. **Significant decisions get an ADR** — append-only, in
     [DECISIONS.md](DECISIONS.md). "Significant" means: anyone would ask _why is it like
     this?_ a year from now.
-21. **Milestone scope is explicit.** Work scheduled for a later milestone (OCR, AI
+27. **Milestone scope is explicit.** Work scheduled for a later milestone (OCR, AI
     features, upload module, CRM integration, browser automation — per current direction)
     is not started early without a roadmap change agreed by the project lead.
-22. **Placeholder honesty.** Unbuilt functionality renders the standard
+28. **Placeholder honesty.** Unbuilt functionality renders the standard
     `ModulePlaceholder` state — never dead buttons or silently broken flows.
 
 ---

@@ -29,6 +29,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 export const PERMISSIONS = {
   "dashboard:view": "dashboard:view",
   "audit:view": "audit:view",
+  "audit:upload": "audit:upload",
   "audit:manage": "audit:manage",
   "crm:view": "crm:view",
   "reports:view": "reports:view",
@@ -37,6 +38,8 @@ export const PERMISSIONS = {
   "branches:manage": "branches:manage",
   "users:manage": "users:manage",
   "settings:manage": "settings:manage",
+  // Internal developer tooling (AI Playground) — Super Admin only.
+  "playground:access": "playground:access",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -44,7 +47,7 @@ export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 const ROLE_PERMISSIONS: Record<AppRole, readonly Permission[]> = {
   SUPER_ADMIN: Object.values(PERMISSIONS),
   AUDITOR: ["dashboard:view", "audit:view", "audit:manage", "reports:view", "branches:view-all"],
-  BRANCH_MANAGER: ["dashboard:view", "audit:view", "branches:view-assigned"],
+  BRANCH_MANAGER: ["dashboard:view", "audit:view", "audit:upload", "branches:view-assigned"],
 };
 
 export function hasPermission(role: AppRole | undefined, permission: Permission): boolean {
@@ -67,6 +70,8 @@ export const ROUTE_ACCESS: ReadonlyArray<{
 }> = [
   { prefix: "/users", roles: [ROLES.SUPER_ADMIN] },
   { prefix: "/settings", roles: [ROLES.SUPER_ADMIN] },
+  { prefix: "/playground", roles: [ROLES.SUPER_ADMIN] },
+  { prefix: "/dev", roles: [ROLES.SUPER_ADMIN] },
   { prefix: "/reports", roles: [ROLES.SUPER_ADMIN, ROLES.AUDITOR] },
   {
     prefix: "/branches",

@@ -22,7 +22,7 @@ function resolveMinLevel(): LogLevel {
  * Axiom, ...) is adopted, implement `LogTransport` and register it via
  * `logger.addTransport()` — no call sites change.
  *
- * Usage: `logger.info("Audit session created", { sessionId })`
+ * Usage: `logger.info("Audit submission created", { submissionId })`
  */
 class Logger {
   private transports: LogTransport[] = [];

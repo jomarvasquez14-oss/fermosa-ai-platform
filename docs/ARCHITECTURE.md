@@ -46,6 +46,7 @@ its own service later without untangling the codebase. See [DECISIONS.md](DECISI
 | ORM        | Prisma 6                                        | PostgreSQL; snake_case table mapping                  |
 | Auth       | Auth.js (NextAuth v5), JWT strategy             | Credentials provider in v1                            |
 | Validation | Zod (+ React Hook Form on the client)           | Same schema on both sides of the wire                 |
+| Testing    | Vitest, React Testing Library (jsdom)           | Colocated `*.test.ts(x)`; `pnpm test` (ADR-022)       |
 | Tooling    | pnpm, ESLint 9 (flat config), Prettier          | `pnpm-workspace.yaml` holds build approvals           |
 
 ## 3. Folder Structure & Layering
@@ -61,6 +62,7 @@ its own service later without untangling the codebase. See [DECISIONS.md](DECISI
 │   ├── ui/                  # shadcn/ui primitives (generated, repo-owned)
 │   ├── layout/              # App shell: sidebar, topbar, breadcrumbs, user menu
 │   ├── shared/              # PageHeader, ErrorState, ModulePlaceholder, Logo, ...
+│   ├── upload/              # Reusable upload kit: dropzone, cards, preview (2A.1)
 │   └── providers/           # Client context providers (theme)
 ├── features/<module>/       # Business modules: actions/, components/, schemas/, data/
 │                            # (created when work on a module begins — no empty stubs)
@@ -73,9 +75,11 @@ its own service later without untangling the codebase. See [DECISIONS.md](DECISI
 │   └── errors.ts            # AppError taxonomy (NotImplementedError, ...)
 ├── services/
 │   ├── *-service.ts         # Data-access services — the ONLY code importing Prisma
-│   ├── ai/                  # AIProvider interface + factory (interfaces only, §11)
+│   ├── ai/                  # AIProvider seam: ocr-schema, prompts/ (versioned),
+│   │                        #   providers/mock (3.0); real providers in 3.x (§11)
 │   ├── crm/                 # CRMConnector strategy interface + factory (§11)
-│   └── audit/               # AuditService pipeline interface + factory (§11)
+│   ├── audit/               # AuditService pipeline interface + factory (§11)
+│   └── storage/             # StorageProvider seam + local backend (2A.2, ADR-024)
 ├── hooks/ types/ utils/     # Shared hooks, global types, pure helpers
 ├── prisma/                  # schema.prisma, migrations, seed.ts
 └── styles/                  # globals.css (Tailwind entry + design tokens)
@@ -212,11 +216,12 @@ Capabilities that are external, swappable, or not yet built are consumed through
 implementation. All three seams are interface-only today — factories throw
 `NotImplementedError` until their milestone lands.
 
-| Seam  | Interface                                                                             | Factory             | Strategies                                           | Selection                                |
-| ----- | ------------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------- | ---------------------------------------- |
-| AI    | `AIProvider` — `extractLogbook`, `analyzeImage`, `generateSummary`                    | `getAIProvider()`   | openai-vision (M3) → claude, gemini, azure-openai    | `AI_PROVIDER` env or explicit argument   |
-| CRM   | `CRMConnector` — `healthCheck`, `fetchCustomerRecords`, `fetchRecordById`             | `getCRMConnector()` | browser-automation (M2+), api (future), mock (tests) | `CRM_CONNECTOR` env or explicit argument |
-| Audit | `AuditService` — session lifecycle + step pipeline (`AUDIT_STEPS`), first-class retry | `getAuditService()` | audit engine (M2)                                    | —                                        |
+| Seam    | Interface                                                                                                                                              | Factory                | Strategies                                                                  | Selection                                   |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- | --------------------------------------------------------------------------- | ------------------------------------------- |
+| AI      | `AIProvider` — `extractLogbook`, `analyzeImage`, `generateSummary`; OCR design in [OCR_ARCHITECTURE.md](OCR_ARCHITECTURE.md) (ADR-026)                 | `getAIProvider()`      | **mock (shipped, 3.0)** → claude, openai-vision, gemini, azure-openai (3.x) | `AI_PROVIDER` env or explicit argument      |
+| CRM     | `CRMConnector` — `healthCheck`, `findPatients`, `fetchPatientRecord`; discovery design in [CRM_DISCOVERY.md](CRM_DISCOVERY.md) (ADR-027)               | `getCRMConnector()`    | **mock (shipped, 3.4)** → browser-automation (Sprint 3), api (future)       | `CRM_CONNECTOR` env or explicit argument    |
+| Audit   | `AuditService` — submission lifecycle + step pipeline (`AUDIT_STEPS`), first-class retry; domain model in [DOMAIN_MODEL.md](DOMAIN_MODEL.md) (ADR-023) | `getAuditService()`    | audit engine (M2)                                                           | —                                           |
+| Storage | `StorageProvider` — `put`, `get`, `exists`, `delete` over opaque keys (ADR-024)                                                                        | `getStorageProvider()` | **local (shipped, 2A.2)**; s3, azure-blob, gcs, r2, supabase (future)       | `STORAGE_PROVIDER` env or explicit argument |
 
 Boundary rules (binding, see [PROJECT_RULES.md](PROJECT_RULES.md) and
 [services/README.md](../services/README.md)):
@@ -245,9 +250,9 @@ _(Introduced in Milestone 1.1 — see ADR-018.)_
 The event catalog (`AppEventMap`) is a closed, compile-time map of
 `domain.action` names to payloads:
 
-`logbook.uploaded` · `ocr.started` · `ocr.completed` · `crm.read.started` ·
-`crm.read.completed` · `matching.started` · `matching.completed` · `audit.completed` ·
-`audit.failed`
+`submission.submitted` · `logbook.image.stored` · `ocr.started` · `ocr.completed` ·
+`crm.read.started` · `crm.read.completed` · `matching.started` · `matching.completed` ·
+`audit.completed` · `audit.failed`
 
 Semantics:
 
