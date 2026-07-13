@@ -20,6 +20,8 @@
 | **M3 / 3.2**    | OCR calibration (rig ready — awaiting samples/key)  | ⏸ **Blocked on inputs**      |
 | **M3 / 3.3**    | OCR review interface (mock data)                    | ✅ **Complete** (2026-07-13) |
 | **M3 / 3.4**    | Mock CRM connector + /dev/crm tooling               | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.5**    | Audit findings engine (canonical output, mock UI)   | ✅ **Complete** (2026-07-14) |
+| **M3 / 3.6**    | Audit orchestrator (workflow layer, mock executors) | ✅ **Complete** (2026-07-14) |
 | **M2**          | Audit module core                                   | Next                         |
 | **M3**          | AI-assisted auditing                                | Planned                      |
 | **M4**          | Reports & administration                            | Planned                      |
@@ -169,6 +171,24 @@ scenarios (duplicates, missing invoice, deleted/edited treatments, …), typed
 infrastructure-error simulation, and the Super-Admin `/dev/crm` inspector. The live
 CRM is never touched; Sprint 4 matching develops entirely against this connector.
 Suite: 96 tests.
+
+**Sprint 3.5 — Audit findings engine ✅** (2026-07-14, ADR-028, see
+[MILESTONES/M0035.md](MILESTONES/M0035.md)): `AuditFinding` persisted as the
+platform's canonical output — 11 evidence-grounded categories, INFO→CRITICAL
+severities, provenance, typed evidence references, and the OPEN → REVIEWED → RESOLVED
+workflow with shared transition rules. Reusable findings kit + `/findings` route
+(Auditor/SA) on labeled mock data. [VISION.md](VISION.md) created — v1.0 definition,
+user journeys, dashboard KPIs, success measures. The rule engine now only has to
+_emit findings_. Suite: 105 tests.
+
+**Sprint 3.6 — Audit orchestrator ✅** (2026-07-14, ADR-029, see
+[MILESTONES/M0036.md](MILESTONES/M0036.md)): the workflow layer.
+`services/orchestrator/` realizes the `AuditService` seam — persisted
+`AuditJob`/`AuditJobStage`, a validated 7-status state machine, pluggable stage
+executors (mock; human review genuinely waits), §5.1 submission-status mapping through
+to `COMPLETED`, lifecycle events, retry/cancel, and the `/audit/[id]/progress`
+timeline UI. Real OCR/CRM/matching integrations become one-executor swaps. Suite: 114
+tests.
 
 Goal: reduce manual review effort on uploaded logbooks.
 

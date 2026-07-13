@@ -566,3 +566,71 @@ matching is unblocked before automation exists. Costs accepted: selector mainten
 recurring work, and discovery inherits gating inputs — the unexported login page, the
 USER-column semantics question, and a sanctioned read-only service account
 (CRM_DISCOVERY §8). PROJECT_RULES gains rule 24 (CRM access constraints).
+
+## ADR-028: AuditFinding as the platform's canonical output
+
+**Status:** Accepted _(2026-07-14, Sprint 3.5)_
+
+**Context:** Four producers are converging — the rule engine (matching), CRM
+discovery, OCR review, and AI analysis — plus manual review. Left alone, each would
+invent its own result format, and the dashboard, reports, and review queue would
+multiply integration shims forever. The output format had to be fixed before the first
+producer ships.
+
+**Decision:** `AuditFinding` (persisted, migration `20260713163129_audit_findings`) is
+the single result format: every module creates or updates findings, none returns a
+bespoke shape. Load-bearing choices: (1) owned by the `AuditSubmission` aggregate
+(Cascade) and **never hard-deleted** — false positives are RESOLVED with a resolution
+note, preserving the record of what the system once claimed. (2) Closed enums for
+category (11 discrepancy kinds mapped to real business cases from the CRM reference
+study), severity (INFO→CRITICAL), and `source` (provenance of the claim). (3) Status
+is a linear workflow — OPEN → REVIEWED → RESOLVED with reopening — and resolution
+always passes through review; transition rules live in one function (`canTransition`)
+shared by UI and (future) service. (4) Evidence is a typed, Zod-validated JSON array
+of references (logbook field / CRM record / CRM activity / note) — IDs only — so every
+finding can prove itself and UIs can deep-link. (5) `expectedValue`/`actualValue` make
+the discrepancy itself first-class rather than buried in prose. (6) The findings UI is
+a reusable kit (`components/findings/`) fed today by mock data (PROJECT_RULES 28
+banner) and tomorrow by rows — the kit renders `FindingView`, not Prisma types.
+
+**Consequences:** The rule engine's deliverable shrinks to "emit findings"; dashboard
+KPIs (VISION.md) are rollups over one table. Costs: enum changes require migrations +
+doc updates, and the client-side enum mirror in the kit must stay in sync with the
+Prisma enums (same accepted trade-off as `lib/auth/roles.ts`). The findings service
+layer (persistence, branch scoping, status mutations with actor attribution) ships
+with the first real producer.
+
+## ADR-029: Orchestrator realizes the audit-engine seam
+
+**Status:** Accepted _(2026-07-14, Sprint 3.6)_
+
+**Context:** The audit lifecycle needed a coordination layer (jobs, stages, retry,
+cancellation, progress) before OCR/CRM/matching integrations exist. The M1.1
+`AuditService` seam already promised exactly this pipeline — but its sketched contract
+also included submission CRUD, which 2A.2 shipped separately as
+`auditSubmissionService`. Creating a parallel module would duplicate the seam.
+
+**Decision:** `services/orchestrator/` IS the audit engine: `getAuditService()` now
+returns the `AuditOrchestrator`, and the `AuditService` type is an alias of its public
+API (contract frozen from 3.6). Load-bearing choices: (1) **jobs and stages persist**
+(`AuditJob`/`AuditJobStage`, migration `20260713165731_audit_orchestration`) — recovery
+derives from rows, never memory or bus events (OCR_ARCHITECTURE §8). (2) One
+**state machine** (`QUEUED/RUNNING/WAITING/RETRYING/COMPLETED/FAILED/CANCELLED`)
+governs jobs and stages; every mutation passes `assertTransition`, and DB updates are
+guarded (`updateMany` re-checks the from-status) so concurrent transitions lose
+loudly. (3) Stage work lives in **pluggable `StageExecutor`s** — mock executors ship
+now; each real integration (OCR, CRM, matching, report) replaces one executor without
+touching the orchestrator. HUMAN_REVIEW is genuinely a WAITING stage resumed by a
+reviewer signal, exactly as it will always be. (4) The orchestrator maps active stages
+onto the submission's §5.1 statuses (OCR→OCR_PROCESSING … REPORT→REPORT_GENERATION →
+COMPLETED), so the domain state machine is now machine-driven. (5) Failure keeps the
+run recoverable: stage FAILED → RETRYING → RUNNING with attempt counters; cancel is
+terminal for the JOB but never touches the submission. (6) Event catalog gains
+`audit.started`, `audit.stage.started/completed/failed`, `audit.cancelled`
+(notifications only).
+
+**Consequences:** OCR/CRM/matching integration becomes "replace an executor" — the
+version 0.6.0 goal. Runs execute inline within the request (mock stages are fast);
+when real OCR arrives, the executor loop moves behind a job runner without contract
+changes. Progress (percentage, elapsed, estimated remaining) is computed from stage
+rows, giving the UI a single source of truth.

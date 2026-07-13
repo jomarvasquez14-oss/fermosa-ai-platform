@@ -98,9 +98,10 @@
 
 25. **Docs move with the code.** A change that alters architecture, access control, the
     schema, or conventions updates the relevant `docs/` file in the same change. The docs
-    set (`ARCHITECTURE`, `PRODUCT`, `ROADMAP`, `CODING_STANDARDS`, `DECISIONS`,
-    `PROJECT_RULES`, `AI_RULES`, `DOMAIN_MODEL`, `OCR_ARCHITECTURE`, `CRM_DISCOVERY`,
-    `DATABASE`, `DEVELOPMENT`) is part of the codebase, not an appendix. AI-assisted contributors additionally follow
+    set (`VISION`, `ARCHITECTURE`, `PRODUCT`, `ROADMAP`, `CODING_STANDARDS`,
+    `DECISIONS`, `PROJECT_RULES`, `AI_RULES`, `DOMAIN_MODEL`, `OCR_ARCHITECTURE`,
+    `CRM_DISCOVERY`, `DATABASE`, `DEVELOPMENT`) is part of the codebase, not an
+    appendix. AI-assisted contributors additionally follow
     [AI_RULES.md](AI_RULES.md).
 26. **Significant decisions get an ADR** — append-only, in
     [DECISIONS.md](DECISIONS.md). "Significant" means: anyone would ask _why is it like

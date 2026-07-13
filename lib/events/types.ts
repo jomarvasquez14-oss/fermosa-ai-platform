@@ -37,6 +37,13 @@ export interface AppEventMap {
   "crm.read.completed": { submissionId: string; recordCount: number; success: boolean };
   "matching.started": { submissionId: string };
   "matching.completed": { submissionId: string; matched: number; unmatched: number };
+  // Orchestration lifecycle (Sprint 3.6, ADR-029) — notifications only;
+  // recovery derives from AuditJob/AuditJobStage rows, never from events.
+  "audit.started": { jobId: string; submissionId: string; branchId: string };
+  "audit.stage.started": { jobId: string; submissionId: string; stage: string; attempt: number };
+  "audit.stage.completed": { jobId: string; submissionId: string; stage: string };
+  "audit.stage.failed": { jobId: string; submissionId: string; stage: string; reason: string };
+  "audit.cancelled": { jobId: string; submissionId: string };
   "audit.completed": { submissionId: string; branchId: string };
   "audit.failed": { submissionId: string; branchId: string; step: string; reason: string };
 }

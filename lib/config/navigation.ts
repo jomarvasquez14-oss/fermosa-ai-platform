@@ -5,6 +5,7 @@ import {
   FileBarChart,
   FlaskConical,
   LayoutDashboard,
+  SearchCheck,
   Settings,
   Users,
   Contact,
@@ -27,6 +28,12 @@ export interface NavItem {
 export const MAIN_NAV: readonly NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Audit", href: "/audit", icon: ClipboardCheck },
+  {
+    title: "Findings",
+    href: "/findings",
+    icon: SearchCheck,
+    roles: [ROLES.SUPER_ADMIN, ROLES.AUDITOR],
+  },
   { title: "CRM", href: "/crm", icon: Contact },
   {
     title: "Reports",

@@ -72,6 +72,7 @@ export const ROUTE_ACCESS: ReadonlyArray<{
   { prefix: "/settings", roles: [ROLES.SUPER_ADMIN] },
   { prefix: "/playground", roles: [ROLES.SUPER_ADMIN] },
   { prefix: "/dev", roles: [ROLES.SUPER_ADMIN] },
+  { prefix: "/findings", roles: [ROLES.SUPER_ADMIN, ROLES.AUDITOR] },
   { prefix: "/reports", roles: [ROLES.SUPER_ADMIN, ROLES.AUDITOR] },
   {
     prefix: "/branches",

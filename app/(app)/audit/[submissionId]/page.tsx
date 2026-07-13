@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ScanSearch } from "lucide-react";
+import { Activity, ScanSearch } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,12 +75,20 @@ export default async function SubmissionPage(props: { params: Promise<{ submissi
         }
       >
         {canReview && (
-          <Button asChild size="lg">
-            <Link href={`/audit/${submission.id}/review`}>
-              <ScanSearch aria-hidden="true" />
-              Review OCR
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="lg">
+              <Link href={`/audit/${submission.id}/progress`}>
+                <Activity aria-hidden="true" />
+                Progress
+              </Link>
+            </Button>
+            <Button asChild size="lg">
+              <Link href={`/audit/${submission.id}/review`}>
+                <ScanSearch aria-hidden="true" />
+                Review OCR
+              </Link>
+            </Button>
+          </div>
         )}
       </PageHeader>
       <SubmissionView submission={submission} actor={actor} />

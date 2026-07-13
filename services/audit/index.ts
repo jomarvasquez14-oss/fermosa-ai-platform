@@ -1,15 +1,15 @@
 import "server-only";
-import { NotImplementedError } from "@/lib/errors";
+import { getAuditOrchestrator } from "@/services/orchestrator";
 import type { AuditService } from "@/services/audit/audit-service";
 
 export type { AuditService } from "@/services/audit/audit-service";
 export * from "@/services/audit/types";
 
 /**
- * Audit service factory. The Milestone 2 engine replaces the throw; the
- * signature is stable so no caller changes when it does.
+ * Audit service factory — since Sprint 3.6 (ADR-029) the audit engine is the
+ * orchestrator. The signature never changed; callers written against the
+ * seam in M1.1 work unmodified.
  */
 export function getAuditService(): AuditService {
-  // return new AuditEngine({ ai: getAIProvider(), crm: getCRMConnector(), events: appEvents })
-  throw new NotImplementedError("Audit engine", "Milestone 2");
+  return getAuditOrchestrator();
 }
