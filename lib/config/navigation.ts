@@ -4,7 +4,9 @@ import {
   DatabaseZap,
   FileBarChart,
   FlaskConical,
+  Globe,
   LayoutDashboard,
+  SearchCheck,
   Settings,
   Users,
   Contact,
@@ -27,6 +29,12 @@ export interface NavItem {
 export const MAIN_NAV: readonly NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Audit", href: "/audit", icon: ClipboardCheck },
+  {
+    title: "Findings",
+    href: "/findings",
+    icon: SearchCheck,
+    roles: [ROLES.SUPER_ADMIN, ROLES.AUDITOR],
+  },
   { title: "CRM", href: "/crm", icon: Contact },
   {
     title: "Reports",
@@ -47,6 +55,12 @@ export const MAIN_NAV: readonly NavItem[] = [
     title: "CRM Dev",
     href: "/dev/crm",
     icon: DatabaseZap,
+    roles: [ROLES.SUPER_ADMIN],
+  },
+  {
+    title: "Browser Dev",
+    href: "/dev/browser",
+    icon: Globe,
     roles: [ROLES.SUPER_ADMIN],
   },
 ];

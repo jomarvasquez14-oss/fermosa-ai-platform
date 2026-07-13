@@ -135,6 +135,78 @@ referenced with `Restrict` (people behind an audit trail are never deletable).
 in-process event bus carries _notifications_ (ADR-018) — different jobs, deliberately
 both.
 
+### AuditFinding _(shipped in Sprint 3.5, ADR-028)_
+
+**The platform's canonical output.** Every producer — rule engine, CRM discovery, OCR,
+AI analysis, manual review — creates or updates `AuditFinding` rows; no module invents
+its own result format. Owned by the submission aggregate (`Cascade`); never
+hard-deleted — a false positive is RESOLVED with a resolution note.
+
+| Field                                      | Notes                                                                                                                                                                                           |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `category`                                 | Closed enum of discrepancy kinds: missing-in-CRM, missing-in-logbook, mismatched field, unmatched/ambiguous patient, missing invoice, record edited/deleted, unreadable entry, duplicate, other |
+| `severity`                                 | INFO → CRITICAL; drives queue ordering and dashboard rollups                                                                                                                                    |
+| `status`                                   | §5.5 workflow: OPEN → REVIEWED → RESOLVED (reopen allowed)                                                                                                                                      |
+| `source`                                   | Which module produced the claim: RULE_ENGINE, CRM_DISCOVERY, OCR, AI_ANALYSIS, MANUAL_REVIEW                                                                                                    |
+| `title` / `detail` / `recommendation`      | One-line statement, full explanation, suggested next step                                                                                                                                       |
+| `expectedValue` / `actualValue`            | What the authoritative source says vs. what the evidence shows                                                                                                                                  |
+| `evidence`                                 | Typed JSON references (`findingEvidenceSchema` in the findings kit): logbook field (image/page/line/field), CRM record, CRM activity event, free note — IDs only, never blobs                   |
+| `confidence`                               | 0..1 for machine-produced findings; null for manual                                                                                                                                             |
+| `reviewedAt` / `resolvedAt` / `resolution` | Workflow timestamps + closure note                                                                                                                                                              |
+
+### AuditJob / AuditJobStage _(shipped in Sprint 3.6, ADR-029)_
+
+One orchestration run for a submission: the workflow layer's persisted state.
+`AuditJob` (status, current stage, who started it) owns five `AuditJobStage` rows —
+one per pipeline stage (OCR → HUMAN_REVIEW → CRM_RETRIEVAL → MATCHING → REPORT) with
+attempt counters, errors, and waiting reasons. Run statuses
+(`QUEUED/RUNNING/WAITING/RETRYING/COMPLETED/FAILED/CANCELLED`) follow a validated
+state machine (§5.6); the orchestrator maps active stages onto the submission's §5.1
+statuses, which is how submissions now reach `COMPLETED` mechanically. Cancelling a
+job never cancels the submission.
+
+#### 5.6: Run status state machine (jobs and stages)
+
+```mermaid
+stateDiagram-v2
+    [*] --> QUEUED
+    QUEUED --> RUNNING
+    RUNNING --> COMPLETED
+    RUNNING --> WAITING : external signal needed
+    WAITING --> RUNNING : signal received
+    RUNNING --> FAILED
+    FAILED --> RETRYING
+    RETRYING --> RUNNING
+    QUEUED --> CANCELLED
+    RUNNING --> CANCELLED
+    WAITING --> CANCELLED
+    FAILED --> CANCELLED
+    RETRYING --> CANCELLED
+    COMPLETED --> [*]
+    CANCELLED --> [*]
+```
+
+_Producer note (Sprint 3.7): the deterministic rule engine (`services/rules/`,
+ADR-030) is the first live producer — thirteen rules over confirmed logbook entries
+and normalized CRM records, with weighted risk/submission/branch scoring. Findings
+persist via `findingService`, idempotently per (submission, source), because findings
+are never deleted._
+
+#### 5.5-preview: Finding status workflow
+
+```mermaid
+stateDiagram-v2
+    [*] --> OPEN : producer creates finding
+    OPEN --> REVIEWED : auditor examined it
+    REVIEWED --> RESOLVED : closed with a resolution note
+    REVIEWED --> OPEN : sent back (more evidence needed)
+    RESOLVED --> OPEN : reopened (new evidence)
+```
+
+Rules: resolution always passes through review (no OPEN → RESOLVED); findings are
+never deleted; reopening is legal from any settled state because audits can be
+challenged.
+
 ### Future entities — documented now, persisted when their milestone arrives
 
 Per ADR-019 (no empty stubs), these get schema when their feature ships, but their

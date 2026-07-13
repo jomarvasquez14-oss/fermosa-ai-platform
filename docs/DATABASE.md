@@ -13,6 +13,7 @@ erDiagram
     Branch ||--o{ AuditSubmission : "submits"
     User ||--o{ AuditSubmission : "submitted by"
     AuditSubmission ||--o{ LogbookImage : "owns (ordered)"
+    AuditSubmission ||--o{ AuditFinding : "owns (canonical output)"
     AuditSubmission ||--o{ AuditTrailEntry : "records"
     User ||--o{ AuditTrailEntry : "acted by"
     User ||--o{ SystemSetting : "last updated by"
@@ -64,6 +65,25 @@ erDiagram
         string storage_key "nullable until 2A.2 stores binaries"
         datetime uploaded_at "nullable"
         float ocr_confidence "nullable, written by M3"
+    }
+
+    AuditFinding {
+        string id PK
+        enum category "MISSING_IN_CRM | ... | OTHER (11 kinds)"
+        enum severity "INFO | LOW | MEDIUM | HIGH | CRITICAL"
+        enum status "OPEN | REVIEWED | RESOLVED"
+        enum source "RULE_ENGINE | CRM_DISCOVERY | OCR | AI_ANALYSIS | MANUAL_REVIEW"
+        string submission_id FK "Cascade (owned)"
+        string title
+        string detail
+        string recommendation "nullable"
+        string expected_value "nullable"
+        string actual_value "nullable"
+        json evidence "typed refs, IDs only"
+        float confidence "nullable"
+        datetime reviewed_at "nullable"
+        datetime resolved_at "nullable"
+        string resolution "nullable"
     }
 
     AuditTrailEntry {
@@ -129,4 +149,6 @@ pnpm db:studio     # inspect data
 Applied migrations: `20260712221833_initial_schema`,
 `20260712231752_audit_submission_domain_model` (replaced the M1 `AuditSession` /
 `LogbookUpload` tables — both empty — with the ADR-023 model),
-`20260713033923_audit_trail_entries` (Sprint 2A.2 audit trail).
+`20260713033923_audit_trail_entries` (Sprint 2A.2 audit trail),
+`20260713163129_audit_findings` (Sprint 3.5 canonical findings, ADR-028 — rows are
+never hard-deleted; false positives resolve with a note).
