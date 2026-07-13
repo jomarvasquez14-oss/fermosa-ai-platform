@@ -1,35 +1,49 @@
 import type {
   CRMConnectorKind,
   CRMHealth,
-  CRMQuery,
   CRMRequestOptions,
-  CustomerRecord,
+  FindPatientsQuery,
+  FindPatientsResult,
+  NormalizedCrmPatientRecord,
+  RetrievalWindow,
 } from "@/services/crm/types";
 
 /**
- * CRM connector interface — the Strategy seam for CRM access.
+ * CRM connector interface — the Strategy seam for CRM access
+ * (CRM_DISCOVERY.md §7, ADR-027).
  *
  * The rest of the application depends ONLY on this interface and obtains an
  * instance from the factory in `services/crm/index.ts`; which strategy is
- * active (browser automation, direct API, mock) is configuration, invisible
+ * active (mock, browser automation, direct API) is configuration, invisible
  * to every caller. Nothing outside `services/crm/` may know or branch on the
- * connector kind.
+ * connector kind, reference a CRM page/URL/selector, or see a raw CRM field.
  *
  * Implementations must:
- *  - normalize source-system fields into `CustomerRecord` — no leaking raw
- *    CRM field names or DOM artifacts,
- *  - surface failures as `AppError` subclasses (timeouts, auth expiry, ...),
- *  - treat the source system as read-only until a milestone says otherwise.
+ *  - speak the normalized model only — `NormalizedCrmPatientRecord` out,
+ *    never source-system shapes,
+ *  - treat business outcomes as data (`not-found` / `ambiguous` with
+ *    candidates, never auto-picked) and throw `AppError`s only for
+ *    infrastructure failures (`CRM_UNAVAILABLE`, `CRM_FORBIDDEN`,
+ *    `CRM_LAYOUT`, `CRM_SESSION`),
+ *  - be READ-ONLY against the source system — no mutating route, ever,
+ *  - stamp every record with provenance (retrievedAt, kind, sourceRef).
  */
 export interface CRMConnector {
   readonly kind: CRMConnectorKind;
 
-  /** Cheap connectivity/login probe for dashboards and pre-flight checks. */
+  /** Cheap reachability/auth probe for dashboards and pre-flight checks. */
   healthCheck(options?: CRMRequestOptions): Promise<CRMHealth>;
 
-  /** Fetch customer records matching a query. */
-  fetchCustomerRecords(query: CRMQuery, options?: CRMRequestOptions): Promise<CustomerRecord[]>;
+  /** Multi-identifier patient lookup. Ambiguity is surfaced, never resolved. */
+  findPatients(query: FindPatientsQuery, options?: CRMRequestOptions): Promise<FindPatientsResult>;
 
-  /** Fetch a single record by its source-system identifier. */
-  fetchRecordById(externalId: string, options?: CRMRequestOptions): Promise<CustomerRecord | null>;
+  /**
+   * Full normalized record for a known patient, with treatments, invoices,
+   * and activity filtered to the retrieval window (omit for everything).
+   */
+  fetchPatientRecord(
+    crmId: string,
+    window?: RetrievalWindow,
+    options?: CRMRequestOptions
+  ): Promise<NormalizedCrmPatientRecord>;
 }

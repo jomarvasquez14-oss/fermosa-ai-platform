@@ -1,12 +1,13 @@
 /**
  * Audit pipeline contracts.
- * Architecture only (Milestone 1.1): the engine arrives in Milestone 2.
+ * Architecture only (Milestone 1.1, terminology aligned with DOMAIN_MODEL.md
+ * in Sprint 2A.1.5): the engine arrives in Milestone 2.
  */
 
 /**
- * Ordered pipeline steps. Adding a future step means extending this list —
- * consumers must treat the set as open (switch statements over steps need a
- * default branch).
+ * Ordered pipeline steps a submission moves through. Adding a future step
+ * means extending this list — consumers must treat the set as open (switch
+ * statements over steps need a default branch).
  */
 export const AUDIT_STEPS = [
   "UPLOAD",
@@ -34,25 +35,27 @@ export interface AuditStepResult {
   error?: { code: string; message: string };
   /**
    * Step-specific output, typed by the step's own module once implemented
-   * (e.g. OCR emits a LogbookExtraction reference). Kept opaque at the
-   * pipeline level so new steps never change this contract.
+   * (e.g. OCR emits OcrResult references). Kept opaque at the pipeline level
+   * so new steps never change this contract.
    */
   output?: unknown;
 }
 
-/** Aggregate view of one audit session's progress through the pipeline. */
-export interface AuditSessionProgress {
-  sessionId: string;
+/** Aggregate view of one submission's progress through the pipeline. */
+export interface AuditSubmissionProgress {
+  submissionId: string;
   branchId: string;
   currentStep: AuditStep | null;
   steps: AuditStepResult[];
   isComplete: boolean;
 }
 
-export interface StartAuditInput {
+/** Creates a DRAFT submission (DOMAIN_MODEL.md §5.1). */
+export interface CreateSubmissionInput {
   branchId: string;
-  auditorId: string;
-  scheduledFor?: Date;
+  submittedById: string;
+  /** The calendar date the logbook pages cover. */
+  auditDate: Date;
   notes?: string;
 }
 

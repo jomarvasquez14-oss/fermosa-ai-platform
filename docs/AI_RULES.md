@@ -11,7 +11,8 @@
    any non-trivial change:
    [PROJECT_RULES.md](PROJECT_RULES.md) → [ARCHITECTURE.md](ARCHITECTURE.md) →
    [CODING_STANDARDS.md](CODING_STANDARDS.md), plus [DATABASE.md](DATABASE.md) for schema
-   work and [DECISIONS.md](DECISIONS.md) for anything touching a past decision.
+   work, [DOMAIN_MODEL.md](DOMAIN_MODEL.md) for anything in the Audit Module, and
+   [DECISIONS.md](DECISIONS.md) for anything touching a past decision.
 2. **Confirm the work is in scope for the current milestone**
    ([ROADMAP.md](ROADMAP.md)). Features scheduled later are not started early; when a
    request conflicts with the roadmap, surface the conflict instead of silently building.

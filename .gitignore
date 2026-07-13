@@ -44,3 +44,13 @@ pnpm-debug.log*
 
 # Claude Code local settings (machine-specific)
 .claude/settings.local.json
+
+# Local storage provider root (binary uploads)
+.storage/
+
+# Real logbook samples + calibration outputs (patient PII — never commit)
+ocr-samples/
+
+# Authoritative CRM reference captures (real patient/staff PII — local only,
+# PROJECT_RULES 24). Ask the project lead before ever committing these.
+docs/crm-reference/

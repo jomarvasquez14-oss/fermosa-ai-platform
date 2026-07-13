@@ -33,18 +33,38 @@ enum BranchStatus {
   INACTIVE
 }
 
-enum AuditSessionStatus {
-  PENDING
-  IN_PROGRESS
+// Lifecycle of an audit submission — see docs/DOMAIN_MODEL.md §5.1 for the
+// full state machine and allowed transitions (forward-only after SUBMITTED).
+enum AuditSubmissionStatus {
+  DRAFT
+  UPLOADING
+  SUBMITTED
+  OCR_PROCESSING
+  OCR_REVIEW
+  CRM_COMPARISON
+  REPORT_GENERATION
   COMPLETED
+  ARCHIVED
   CANCELLED
 }
 
-enum UploadStatus {
-  PENDING
-  PROCESSING
-  PROCESSED
-  FAILED
+// Storage lifecycle of one logbook image (docs/DOMAIN_MODEL.md §5.2).
+// OCR state deliberately lives on the future OcrResult, not here.
+enum LogbookImageStatus {
+  PENDING_UPLOAD
+  UPLOADING
+  STORED
+  UPLOAD_FAILED
+}
+
+// Business events recorded on a submission's audit trail (Sprint 2A.2).
+enum AuditTrailAction {
+  SUBMISSION_CREATED
+  DRAFT_SAVED
+  SUBMISSION_SUBMITTED
+  IMAGE_ADDED
+  IMAGE_REMOVED
+  IMAGE_REORDERED
 }
 
 // ---------------------------------------------------------------------------
@@ -76,9 +96,9 @@ model User {
   branchId String? @map("branch_id")
   branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
-  auditSessions   AuditSession[]  @relation("AuditorSessions")
-  logbookUploads  LogbookUpload[] @relation("UploadedBy")
-  settingsUpdates SystemSetting[] @relation("SettingUpdatedBy")
+  auditSubmissions  AuditSubmission[] @relation("SubmittedBy")
+  auditTrailEntries AuditTrailEntry[] @relation("TrailActor")
+  settingsUpdates   SystemSetting[]   @relation("SettingUpdatedBy")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -99,9 +119,8 @@ model Branch {
   address String
   status  BranchStatus @default(ACTIVE)
 
-  users          User[]
-  auditSessions  AuditSession[]
-  logbookUploads LogbookUpload[]
+  users            User[]
+  auditSubmissions AuditSubmission[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -110,59 +129,104 @@ model Branch {
 }
 
 // ---------------------------------------------------------------------------
-// Audit Module (structure only — business logic arrives in Milestone 2)
+// Audit Module — authoritative model in docs/DOMAIN_MODEL.md (ADR-023).
+// AuditSubmission is the aggregate root: images are reached only through it,
+// and its invariants (image count, ordering, post-submit immutability) are
+// enforced in the service layer. Future entities (OcrResult, CrmComparison,
+// AuditReport) are specified in DOMAIN_MODEL.md §3 and persisted when their
+// milestone arrives (ADR-019).
 // ---------------------------------------------------------------------------
 
-model AuditSession {
-  id     String             @id @default(cuid())
-  status AuditSessionStatus @default(PENDING)
+model AuditSubmission {
+  id     String                @id @default(cuid())
+  status AuditSubmissionStatus @default(DRAFT)
   notes  String?
 
+  // The calendar date the logbook pages cover — not the upload date.
+  auditDate DateTime @map("audit_date") @db.Date
+
+  // Restrict: submissions are audit-trail records; the branch and the person
+  // who submitted must never be deletable out from under them (ADR-010).
   branchId String @map("branch_id")
-  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
 
-  auditorId String @map("auditor_id")
-  auditor   User   @relation("AuditorSessions", fields: [auditorId], references: [id], onDelete: Restrict)
+  submittedById String @map("submitted_by_id")
+  submittedBy   User   @relation("SubmittedBy", fields: [submittedById], references: [id], onDelete: Restrict)
 
-  logbookUploads LogbookUpload[]
+  images       LogbookImage[]
+  trailEntries AuditTrailEntry[]
 
-  scheduledFor DateTime? @map("scheduled_for")
-  startedAt    DateTime? @map("started_at")
-  completedAt  DateTime? @map("completed_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  submittedAt DateTime? @map("submitted_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  @@index([branchId])
-  @@index([auditorId])
+  // Deliberately NOT unique on (branchId, auditDate): late follow-up
+  // submissions for the same date are allowed (DOMAIN_MODEL.md §3, risk #2).
+  @@index([branchId, auditDate])
+  @@index([submittedById])
   @@index([status])
-  @@map("audit_sessions")
+  @@map("audit_submissions")
 }
 
-model LogbookUpload {
-  id         String       @id @default(cuid())
-  fileName   String       @map("file_name")
-  storageKey String       @map("storage_key")
-  mimeType   String?      @map("mime_type")
-  fileSize   Int?         @map("file_size")
-  status     UploadStatus @default(PENDING)
+model LogbookImage {
+  id     String             @id @default(cuid())
+  status LogbookImageStatus @default(PENDING_UPLOAD)
 
-  branchId String @map("branch_id")
-  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  // Cascade: images are owned by their submission (aggregate boundary).
+  // Hard deletion of images is legal only while the submission is a DRAFT —
+  // enforced in the service layer, not the database.
+  submissionId String          @map("submission_id")
+  submission   AuditSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
-  uploadedById String @map("uploaded_by_id")
-  uploadedBy   User   @relation("UploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+  // 1-based page order; the page number shown to users is derived from this.
+  // Contiguity is a service-layer invariant (reordering swaps break DB-level
+  // uniqueness transiently, so no unique constraint here).
+  displayOrder Int @map("display_order")
 
-  auditSessionId String?       @map("audit_session_id")
-  auditSession   AuditSession? @relation(fields: [auditSessionId], references: [id], onDelete: SetNull)
+  // Viewing metadata (0/90/180/270). The stored file is never modified.
+  rotation Int @default(0)
+
+  originalFileName String  @map("original_file_name")
+  mimeType         String? @map("mime_type")
+  fileSizeBytes    Int?    @map("file_size_bytes")
+
+  // Object-storage key — null until Sprint 2A.2 actually stores the binary.
+  storageKey String?   @map("storage_key")
+  uploadedAt DateTime? @map("uploaded_at")
+
+  // Denormalized confidence of the accepted OCR result (Milestone 3 writes it;
+  // full OCR data lives on the future OcrResult entity).
+  ocrConfidence Float? @map("ocr_confidence")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@index([branchId])
-  @@index([uploadedById])
-  @@index([auditSessionId])
+  @@index([submissionId, displayOrder])
   @@index([status])
-  @@map("logbook_uploads")
+  @@map("logbook_images")
+}
+
+// Immutable business-event log for one submission (Sprint 2A.2). Rows are
+// append-only: never updated, never deleted independently of the submission.
+model AuditTrailEntry {
+  id     String           @id @default(cuid())
+  action AuditTrailAction
+
+  submissionId String          @map("submission_id")
+  submission   AuditSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  actorId String @map("actor_id")
+  actor   User   @relation("TrailActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  /** Action-specific detail (image id, filename, old/new order, ...). IDs only — no blobs. */
+  metadata Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([submissionId, createdAt])
+  @@index([actorId])
+  @@map("audit_trail_entries")
 }
 
 // ---------------------------------------------------------------------------

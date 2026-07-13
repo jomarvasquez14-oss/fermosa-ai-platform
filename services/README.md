@@ -13,11 +13,12 @@ for Branch Managers). Plain objects, no classes needed.
 `ai/`, `crm/`, `audit/` — dependency-inversion seams for capabilities whose
 implementations are external, swappable, or not yet built:
 
-| Folder   | Interface      | Strategies / implementations                             | Selected by                    |
-| -------- | -------------- | -------------------------------------------------------- | ------------------------------ |
-| `ai/`    | `AIProvider`   | openai-vision (M3), claude, gemini, azure-openai (later) | `AI_PROVIDER` env / argument   |
-| `crm/`   | `CRMConnector` | browser-automation (M2+), api (future), mock (M2 tests)  | `CRM_CONNECTOR` env / argument |
-| `audit/` | `AuditService` | audit engine (M2)                                        | `getAuditService()`            |
+| Folder     | Interface         | Strategies / implementations                                               | Selected by                       |
+| ---------- | ----------------- | -------------------------------------------------------------------------- | --------------------------------- |
+| `ai/`      | `AIProvider`      | **mock (shipped, 3.0)**; claude, openai-vision, gemini, azure-openai (3.x) | `AI_PROVIDER` env / argument      |
+| `crm/`     | `CRMConnector`    | **mock (shipped, 3.4)** → browser-automation, api (later)                  | `CRM_CONNECTOR` env / argument    |
+| `audit/`   | `AuditService`    | audit engine (M2)                                                          | `getAuditService()`               |
+| `storage/` | `StorageProvider` | **local (shipped)**; s3, azure-blob, gcs, r2, supabase                     | `STORAGE_PROVIDER` env / argument |
 
 Rules:
 

@@ -27,16 +27,18 @@ export interface EventEnvelope<TName extends AppEventName = AppEventName> {
  * subscribers load what they need through services.
  */
 export interface AppEventMap {
-  // Audit module (fire from the M2+ engine; catalogued now so contracts exist)
-  "logbook.uploaded": { uploadId: string; branchId: string; uploadedById: string };
-  "ocr.started": { uploadId: string; sessionId?: string };
-  "ocr.completed": { uploadId: string; sessionId?: string; success: boolean };
-  "crm.read.started": { sessionId: string; query: { branchCode?: string } };
-  "crm.read.completed": { sessionId: string; recordCount: number; success: boolean };
-  "matching.started": { sessionId: string };
-  "matching.completed": { sessionId: string; matched: number; unmatched: number };
-  "audit.completed": { sessionId: string; branchId: string };
-  "audit.failed": { sessionId: string; branchId: string; step: string; reason: string };
+  // Audit module (fire from the M2+ engine; catalogued now so contracts
+  // exist). Terminology follows docs/DOMAIN_MODEL.md: submissions own images.
+  "submission.submitted": { submissionId: string; branchId: string; submittedById: string };
+  "logbook.image.stored": { imageId: string; submissionId: string; branchId: string };
+  "ocr.started": { imageId: string; submissionId: string };
+  "ocr.completed": { imageId: string; submissionId: string; success: boolean };
+  "crm.read.started": { submissionId: string; query: { branchCode?: string } };
+  "crm.read.completed": { submissionId: string; recordCount: number; success: boolean };
+  "matching.started": { submissionId: string };
+  "matching.completed": { submissionId: string; matched: number; unmatched: number };
+  "audit.completed": { submissionId: string; branchId: string };
+  "audit.failed": { submissionId: string; branchId: string; step: string; reason: string };
 }
 
 export type AppEventName = keyof AppEventMap;

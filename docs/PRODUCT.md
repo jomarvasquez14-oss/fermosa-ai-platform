@@ -58,8 +58,9 @@ Role definitions and the full capability matrix live in
 - Three-role authorization at four layers (middleware, server guards, services, UI).
 - Full application shell: responsive sidebar + topbar, breadcrumbs, user menu, dark mode,
   professional error pages (404/401/403/500).
-- Complete database schema for User, Role, Branch, AuditSession, LogbookUpload,
-  SystemSetting — relationships designed for the audit workflow before the workflow ships.
+- Complete database schema for User, Role, Branch, AuditSubmission, LogbookImage,
+  SystemSetting — the audit entities follow the authoritative domain model in
+  [DOMAIN_MODEL.md](DOMAIN_MODEL.md) (reviewed in Sprint 2A.1.5, ADR-023).
 - Logging architecture, environment configuration, seed data, and this documentation set.
 
 ## 6. Explicit Non-Goals (current phase)
@@ -99,10 +100,10 @@ self-service account creation, no multi-tenancy. Accounts are provisioned by a S
 
 ## 9. Glossary
 
-| Term                | Meaning                                                                                                                |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Branch**          | A physical business location, identified by a unique code (e.g. `MKT-001`)                                             |
-| **Logbook Upload**  | A scanned logbook file submitted by a branch; stored in object storage, referenced by `storageKey`                     |
-| **Audit Session**   | A structured review of a branch's logbooks by an auditor, with lifecycle `PENDING → IN_PROGRESS → COMPLETED/CANCELLED` |
-| **Compliance Rate** | Share of audited items meeting policy (definition finalized in Milestone 2)                                            |
-| **Module**          | A self-contained business capability under `features/` with its own routes, components, and services                   |
+| Term                 | Meaning                                                                                                                                                                      |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Branch**           | A physical business location, identified by a unique code (e.g. `MKT-001`)                                                                                                   |
+| **Audit Submission** | One branch's logbook submission for one audit date — the unit the whole audit workflow revolves around (lifecycle in [DOMAIN_MODEL.md §5](DOMAIN_MODEL.md#5-state-machines)) |
+| **Logbook Image**    | One photographed/scanned logbook page inside a submission; page number derives from its order                                                                                |
+| **Compliance Rate**  | Share of audited items meeting policy (definition finalized in Milestone 2)                                                                                                  |
+| **Module**           | A self-contained business capability under `features/` with its own routes, components, and services                                                                         |

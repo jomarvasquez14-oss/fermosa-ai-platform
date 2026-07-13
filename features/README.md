@@ -22,10 +22,11 @@ Rules:
 
 Current modules:
 
-| Module      | Status                         |
-| ----------- | ------------------------------ |
-| `auth`      | Implemented (login, sign-out)  |
-| `dashboard` | Implemented (placeholder data) |
+| Module      | Status                                                                 |
+| ----------- | ---------------------------------------------------------------------- |
+| `auth`      | Implemented (login, sign-out)                                          |
+| `dashboard` | Implemented (placeholder data)                                         |
+| `audit`     | In progress — upload UI (2A.1) + submission persistence (2A.2) shipped |
 
 Planned modules (see [docs/ROADMAP.md](../docs/ROADMAP.md)): audit (M2), reports, users,
 settings, branches (M4), then CRM, inventory, sales, marketing, executive dashboard, HR,

@@ -104,5 +104,6 @@ Permanent project documentation lives in [docs/](docs/):
 | [DECISIONS.md](docs/DECISIONS.md)               | ADR log — why things are the way they are                   |
 | [PROJECT_RULES.md](docs/PROJECT_RULES.md)       | Non-negotiable rules every change must satisfy              |
 | [AI_RULES.md](docs/AI_RULES.md)                 | Binding rules for AI-assisted development                   |
+| [DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md)         | Authoritative business model for the Audit Module           |
 | [DATABASE.md](docs/DATABASE.md)                 | Schema, ERD, and modeling rationale                         |
 | [DEVELOPMENT.md](docs/DEVELOPMENT.md)           | Setup and how-to guides (adding a module, authz cheatsheet) |
