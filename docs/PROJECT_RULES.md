@@ -57,9 +57,10 @@
 
 ## Quality Gates
 
-16. **A change merges only when `pnpm typecheck`, `pnpm lint`, and `pnpm build` all pass**
-    (run manually until CI exists; CI adoption is an M1 follow-up in
-    [ROADMAP.md](ROADMAP.md)).
+16. **A change merges only when `pnpm typecheck`, `pnpm lint`, `pnpm test`, and
+    `pnpm build` all pass** — enforced by CI on every push and pull request
+    (`.github/workflows/ci.yml`, ADR-032); run `pnpm release-check` locally for the
+    identical gate sequence.
 17. **Strictness is never lowered to make code compile.** No disabling TypeScript strict
     flags, no `eslint-disable` without an inline justification comment, no
     `ignoreBuildErrors`.

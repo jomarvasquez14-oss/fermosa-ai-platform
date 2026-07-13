@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { appEvents } from "@/lib/events";
 import { logger } from "@/lib/logger";
+import { startSpan } from "@/lib/telemetry";
 import { getAIProvider } from "@/services/ai";
 import { getCRMConnector } from "@/services/crm";
 import { findingService } from "@/services/finding-service";
@@ -96,6 +97,15 @@ export const matchingExecutor: StageExecutor = {
       resolutions,
       crmRecords: [...recordsById.values()],
     });
+    // Rule-execution timing span (4.0B) — the engine reports its own duration.
+    startSpan("rules.evaluate", {
+      submissionId: submission.id,
+      entries: entries.length,
+      rulesRun: report.results.length,
+      findings: report.findings.length,
+      riskScore: report.scores.riskScore,
+      engineMs: Math.round(report.durationMs * 100) / 100,
+    }).end();
 
     const persisted = await findingService.createForSubmission(
       submission.id,

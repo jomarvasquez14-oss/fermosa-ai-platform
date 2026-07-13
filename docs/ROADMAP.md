@@ -6,29 +6,30 @@
 
 ## Summary
 
-| Milestone       | Theme                                               | Status                       |
-| --------------- | --------------------------------------------------- | ---------------------------- |
-| **M1**          | Platform foundation                                 | ✅ **Complete** (2026-07-12) |
-| **M1.1**        | Architecture refinement (seams, events, AI rules)   | ✅ **Complete** (2026-07-12) |
-| **M2 / 2A.1**   | Audit: upload interface (UI only)                   | ✅ **Complete** (2026-07-13) |
-| **M2 / 2A.1.5** | Audit: domain model review (no new functionality)   | ✅ **Complete** (2026-07-13) |
-| **M2 / 2A.2**   | Audit: submission persistence (first real data)     | ✅ **Complete** (2026-07-13) |
-| **M2 / 2B.0**   | Audit: OCR architecture design (no implementation)  | ✅ **Complete** (2026-07-13) |
-| **M2 / 2B.1**   | CRM Discovery architecture (no implementation)      | ✅ **Complete** (2026-07-13) |
-| **M3 / 3.0**    | AI Playground (mock provider, dev tooling)          | ✅ **Complete** (2026-07-13) |
-| **M3 / 3.1**    | Claude vision provider (playground-only)            | ✅ **Complete** (2026-07-13) |
-| **M3 / 3.2**    | OCR calibration (rig ready — awaiting samples/key)  | ⏸ **Blocked on inputs**      |
-| **M3 / 3.3**    | OCR review interface (mock data)                    | ✅ **Complete** (2026-07-13) |
-| **M3 / 3.4**    | Mock CRM connector + /dev/crm tooling               | ✅ **Complete** (2026-07-13) |
-| **M3 / 3.5**    | Audit findings engine (canonical output, mock UI)   | ✅ **Complete** (2026-07-14) |
-| **M3 / 3.6**    | Audit orchestrator (workflow layer, mock executors) | ✅ **Complete** (2026-07-14) |
-| **M3 / 3.7**    | Rule engine (deterministic, findings out)           | ✅ **Complete** (2026-07-14) |
-| **M3 / 3.9**    | Browser automation framework (mock driver only)     | ✅ **Complete** (2026-07-14) |
-| **M2**          | Audit module core                                   | Next                         |
-| **M3**          | AI-assisted auditing                                | Planned                      |
-| **M4**          | Reports & administration                            | Planned                      |
-| **M5+**         | Adjacent modules (CRM, Inventory, Sales, Marketing) | Future                       |
-| Continuous      | Hardening & operations                              | Ongoing                      |
+| Milestone        | Theme                                               | Status                       |
+| ---------------- | --------------------------------------------------- | ---------------------------- |
+| **M1**           | Platform foundation                                 | ✅ **Complete** (2026-07-12) |
+| **M1.1**         | Architecture refinement (seams, events, AI rules)   | ✅ **Complete** (2026-07-12) |
+| **M2 / 2A.1**    | Audit: upload interface (UI only)                   | ✅ **Complete** (2026-07-13) |
+| **M2 / 2A.1.5**  | Audit: domain model review (no new functionality)   | ✅ **Complete** (2026-07-13) |
+| **M2 / 2A.2**    | Audit: submission persistence (first real data)     | ✅ **Complete** (2026-07-13) |
+| **M2 / 2B.0**    | Audit: OCR architecture design (no implementation)  | ✅ **Complete** (2026-07-13) |
+| **M2 / 2B.1**    | CRM Discovery architecture (no implementation)      | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.0**     | AI Playground (mock provider, dev tooling)          | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.1**     | Claude vision provider (playground-only)            | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.2**     | OCR calibration (rig ready — awaiting samples/key)  | ⏸ **Blocked on inputs**      |
+| **M3 / 3.3**     | OCR review interface (mock data)                    | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.4**     | Mock CRM connector + /dev/crm tooling               | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.5**     | Audit findings engine (canonical output, mock UI)   | ✅ **Complete** (2026-07-14) |
+| **M3 / 3.6**     | Audit orchestrator (workflow layer, mock executors) | ✅ **Complete** (2026-07-14) |
+| **M3 / 3.7**     | Rule engine (deterministic, findings out)           | ✅ **Complete** (2026-07-14) |
+| **M3 / 3.9**     | Browser automation framework (mock driver only)     | ✅ **Complete** (2026-07-14) |
+| **v0.6.1 / 4.0** | Engineering excellence (CI, telemetry, DX, reviews) | ✅ **Complete** (2026-07-14) |
+| **M2**           | Audit module core                                   | Next                         |
+| **M3**           | AI-assisted auditing                                | Planned                      |
+| **M4**           | Reports & administration                            | Planned                      |
+| **M5+**          | Adjacent modules (CRM, Inventory, Sales, Marketing) | Future                       |
+| Continuous       | Hardening & operations                              | Ongoing                      |
 
 ---
 
@@ -209,6 +210,15 @@ navigate/retry/recover, typed CRM error taxonomy, and the `/dev/browser` playgro
 Real CRM automation later = one Playwright driver + confirmed selectors. Suite: 154
 tests. **Sprint 3.8 (OCR integration) remains intentionally skipped until real logbook
 samples arrive.**
+
+**Version 0.6.1 — Engineering excellence ✅** (2026-07-14, ADR-032, see
+[MILESTONES/M0040.md](MILESTONES/M0040.md)): GitHub Actions CI (Postgres service
+container, test summary, fail-fast — the M1 carry-over closed), `lib/telemetry/`
+(spans, correlation ids, error classification; orchestrator + rule-engine
+instrumented), `pnpm verify`/`release-check` + [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md),
+and three formal reviews: [PERFORMANCE.md](PERFORMANCE.md),
+[SECURITY.md](SECURITY.md) (one missing page guard found and fixed), and the
+architecture validation report (M0040 §4.0F). Suite: 160 tests.
 
 Goal: reduce manual review effort on uploaded logbooks.
 

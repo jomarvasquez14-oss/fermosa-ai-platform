@@ -1,0 +1,94 @@
+# Continuous integration (Sprint 4.0A, ADR-032).
+# Every push and pull request must pass the same gates developers run locally
+# via `pnpm release-check`: typecheck → lint → tests (unit + DB integration)
+# → production build. Steps fail fast; nothing merges red.
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Typecheck · Lint · Test · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fermosa_platform_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fermosa_platform_test?schema=public
+      AUTH_SECRET: ci-only-secret-not-used-in-production-0000000000
+      AUTH_TRUST_HOST: "true"
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      STORAGE_PROVIDER: local
+      STORAGE_LOCAL_ROOT: .storage
+      AI_PROVIDER: mock
+      CRM_CONNECTOR: mock
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        # Version comes from package.json's "packageManager" field.
+
+      - name: Set up Node.js (with pnpm store cache)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Apply database migrations
+        run: pnpm db:deploy
+
+      - name: Tests (unit + integration)
+        run: pnpm vitest run --reporter=default --reporter=json --outputFile=vitest-report.json
+
+      - name: Test summary
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            if (!fs.existsSync("vitest-report.json")) process.exit(0);
+            const r = JSON.parse(fs.readFileSync("vitest-report.json", "utf8"));
+            const lines = [
+              "## Test summary",
+              "",
+              `| Files | Tests | Passed | Failed |`,
+              `| --- | --- | --- | --- |`,
+              `| ${r.numTotalTestSuites} | ${r.numTotalTests} | ${r.numPassedTests} | ${r.numFailedTests} |`,
+            ];
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
+          '
+
+      - name: Production build
+        run: pnpm build

@@ -105,6 +105,9 @@ Permanent project documentation lives in [docs/](docs/):
 | [PROJECT_RULES.md](docs/PROJECT_RULES.md)       | Non-negotiable rules every change must satisfy              |
 | [AI_RULES.md](docs/AI_RULES.md)                 | Binding rules for AI-assisted development                   |
 | [VISION.md](docs/VISION.md)                     | Product vision: v1.0, user journeys, KPIs, success measures |
+| [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)   | Clone → green release-check: setup, workflow, tests, CI     |
+| [PERFORMANCE.md](docs/PERFORMANCE.md)           | Measurements, bottlenecks, and when (not) to optimize       |
+| [SECURITY.md](docs/SECURITY.md)                 | Verified protections, risk register, hardening plan         |
 | [DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md)         | Authoritative business model for the Audit Module           |
 | [DATABASE.md](docs/DATABASE.md)                 | Schema, ERD, and modeling rationale                         |
 | [DEVELOPMENT.md](docs/DEVELOPMENT.md)           | Setup and how-to guides (adding a module, authz cheatsheet) |

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { InvalidStateError, NotFoundError } from "@/lib/errors";
 import { appEvents } from "@/lib/events";
 import { logger } from "@/lib/logger";
+import { runWithCorrelation, startSpan, trace } from "@/lib/telemetry";
 import { auditSubmissionService, type Actor } from "@/services/audit-submission-service";
 import { assertTransition, isTerminal } from "./state-machine";
 import {
@@ -86,7 +87,8 @@ export class AuditOrchestrator {
     logger.info("Audit run started", { jobId: job.id, submissionId, actorId: actor.id });
 
     await this.transitionJob(job.id, "QUEUED", "RUNNING");
-    return this.runPipeline(actor, job.id);
+    // Correlate everything this run does — stages, rules, log lines.
+    return runWithCorrelation(job.id, () => this.runPipeline(actor, job.id));
   }
 
   /** Resume a WAITING stage (e.g. reviewer confirmed) and continue the run. */
@@ -100,7 +102,7 @@ export class AuditOrchestrator {
     await this.transitionStage(waiting.id, "WAITING", "RUNNING");
     await this.completeStage(job.id, job.submissionId, waiting.stage as AuditStageId, waiting.id);
     await this.transitionJob(job.id, "WAITING", "RUNNING");
-    return this.runPipeline(actor, job.id);
+    return runWithCorrelation(job.id, () => this.runPipeline(actor, job.id));
   }
 
   /** Retry the failed stage of a FAILED run. */
@@ -114,7 +116,7 @@ export class AuditOrchestrator {
     await this.transitionStage(failed.id, "FAILED", "RETRYING");
     await this.transitionJob(job.id, "FAILED", "RETRYING");
     await this.transitionJob(job.id, "RETRYING", "RUNNING");
-    return this.runPipeline(actor, job.id);
+    return runWithCorrelation(job.id, () => this.runPipeline(actor, job.id));
   }
 
   /** Cancel a run. The submission itself is untouched — a new run can start. */
@@ -195,12 +197,21 @@ export class AuditOrchestrator {
       });
 
       try {
-        const outcome = await this.executors.get(stageId)!.execute({
-          jobId,
-          submissionId: job.submissionId,
-          stage: stageId,
-          attempt: next.attempt + 1,
-        });
+        // Stage timing: one span per executor attempt (4.0B).
+        const outcome = await trace(
+          "orchestrator.stage",
+          { stage: stageId, jobId, submissionId: job.submissionId, attempt: next.attempt + 1 },
+          async (span) => {
+            const result = await this.executors.get(stageId)!.execute({
+              jobId,
+              submissionId: job.submissionId,
+              stage: stageId,
+              attempt: next.attempt + 1,
+            });
+            span.setAttribute("stageOutcome", result.kind);
+            return result;
+          }
+        );
 
         if (outcome.kind === "waiting") {
           await this.transitionStage(next.id, "RUNNING", "WAITING", {
@@ -247,6 +258,12 @@ export class AuditOrchestrator {
   }
 
   private async finishJob(job: JobWithStages): Promise<void> {
+    const span = startSpan("orchestrator.job.completed", {
+      jobId: job.id,
+      submissionId: job.submissionId,
+      totalMs: Date.now() - job.startedAt.getTime(),
+    });
+    span.end();
     assertTransition({ from: job.status as RunStatus, to: "COMPLETED" });
     await prisma.auditJob.update({
       where: { id: job.id },

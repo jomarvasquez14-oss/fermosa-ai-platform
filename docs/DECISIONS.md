@@ -704,3 +704,31 @@ navigation history, selector registry table, and armed failure simulations.
 driver + confirming v1 selectors against the login capture. Recovery behavior is
 already tested and demonstrable, so selector maintenance and session flakiness —
 the two chronic costs of scraping — have their playbooks before the first real run.
+
+## ADR-032: CI pipeline and vendor-free telemetry baseline
+
+**Status:** Accepted _(2026-07-14, Version 0.6.1)_
+
+**Context:** Quality gates ran manually since M1 (a documented carry-over), and the
+orchestrator/rule-engine stack shipped with only ad-hoc log lines — no way to answer
+"how long did that stage take, and which run was that?" once real OCR/CRM volumes
+arrive. Both needed fixing before integration work, without buying a monitoring vendor.
+
+**Decision:** (1) **GitHub Actions CI** (`.github/workflows/ci.yml`) on every push and
+PR: pnpm-cached install → typecheck → lint → migrations against a Postgres 16 service
+container → the full test suite (integration tests run for real, not mocked out) with
+a step-summary table → production build; fail-fast, per-ref concurrency cancellation.
+Local parity via `pnpm verify` / `pnpm release-check` — the same commands, so green
+means the same thing everywhere. (2) **`lib/telemetry/`** — interfaces only:
+structured `Span`s emitted to `TelemetrySink`s (default sink logs through the existing
+transport-based logger; sinks are isolated so observability can never break the
+observed workflow), correlation ids via AsyncLocalStorage (node-only, never imported
+from edge code), `trace`/`startSpan` helpers, and coarse `ErrorClass` derived from
+AppError codes. Instrumentation lives where the work is: orchestrator stage spans
+(correlated by job id), job totals, rule-engine evaluation timing.
+
+**Consequences:** PROJECT_RULES 16's "until CI exists" clause is retired — merges are
+machine-gated. A vendor adapter (OTel/Datadog/Axiom) later implements one interface
+and touches zero instrumented code. Costs: CI runs the DB suite (~1 min of container
+time per push), and AsyncLocalStorage confines telemetry to the Node runtime — an
+accepted, documented boundary.
