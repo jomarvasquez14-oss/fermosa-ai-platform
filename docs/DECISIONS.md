@@ -634,3 +634,41 @@ version 0.6.0 goal. Runs execute inline within the request (mock stages are fast
 when real OCR arrives, the executor loop moves behind a job runner without contract
 changes. Progress (percentage, elapsed, estimated remaining) is computed from stage
 rows, giving the UI a single source of truth.
+
+## ADR-030: Deterministic rule engine emitting canonical findings
+
+**Status:** Accepted _(2026-07-14, Sprint 3.7)_
+
+**Context:** Matching logbook entries against CRM records is the platform's core
+judgment, and it must be explainable to branch staff and management. AI is the wrong
+tool for the first pass: rules are auditable, deterministic, testable one-by-one, and
+free. The findings engine (ADR-028) already fixed the output format.
+
+**Decision:** `services/rules/` — a pure, synchronous rule engine: `Rule` (id,
+description, default weight, `evaluate(ctx) → RuleResult[]`), `RuleRegistry`
+(pluggable; duplicate ids fail loudly), `RuleEngine` evaluator, and thirteen built-in
+rules (patient name, treatment, therapist, invoice integrity, payment sums, branch,
+date, duplicate patient/ambiguity, deleted treatment, edited treatment, missing CRM
+record, missing invoice, duplicate entry). Load-bearing choices: (1) **input is
+`ConfirmedEntry[]` + `NormalizedCrmPatientRecord[]` + `PatientResolution[]`; output is
+`FindingDraft[]`** — never UI/OCR/CRM shapes; finding domain vocabulary moved to
+`lib/findings.ts` so services never import components. (2) **Configuration is data**:
+similarity threshold, time tolerance, severity weights, and per-rule enable/weight
+overrides (`RuleEngineConfig`, defaults in code, SystemSetting-backed later).
+(3) **Scoring**: risk = Σ severityWeight × ruleWeight per non-pass result, capped at
+100; submissionScore = 100 − risk; `branchScore` averages submissions. (4) Name
+matching is deliberately simple (normalize + token-set + Levenshtein) — smarter
+matching is a future AI-assist, never a silent change to rules. (5) **Persistence via
+`findingService`** (the ADR-028 "first producer" service): schema-validated evidence,
+§5.5 transitions with timestamps, branch scoping, and idempotency per
+(submission, source) — findings are never deleted, so re-runs must not duplicate.
+(6) The orchestrator's MATCHING executor is the first REAL executor: it feeds the
+engine simulated confirmed-OCR (deterministic mock provider) + connector-supplied CRM
+records, and persists the findings. `/findings` is now DB-backed with persisted
+workflow.
+
+**Consequences:** Findings on screen are real rows with real provenance; OCR/CRM
+integration later only improves the engine's INPUTS. Rule changes are reviewable code;
+threshold changes are configuration. Known limitation: re-running matching after rule
+changes will not refresh existing findings (idempotency guard) — a versioned-rerun
+strategy is future work.

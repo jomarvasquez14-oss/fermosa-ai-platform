@@ -22,6 +22,7 @@
 | **M3 / 3.4**    | Mock CRM connector + /dev/crm tooling               | ✅ **Complete** (2026-07-13) |
 | **M3 / 3.5**    | Audit findings engine (canonical output, mock UI)   | ✅ **Complete** (2026-07-14) |
 | **M3 / 3.6**    | Audit orchestrator (workflow layer, mock executors) | ✅ **Complete** (2026-07-14) |
+| **M3 / 3.7**    | Rule engine (deterministic, findings out)           | ✅ **Complete** (2026-07-14) |
 | **M2**          | Audit module core                                   | Next                         |
 | **M3**          | AI-assisted auditing                                | Planned                      |
 | **M4**          | Reports & administration                            | Planned                      |
@@ -189,6 +190,14 @@ executors (mock; human review genuinely waits), §5.1 submission-status mapping 
 to `COMPLETED`, lifecycle events, retry/cancel, and the `/audit/[id]/progress`
 timeline UI. Real OCR/CRM/matching integrations become one-executor swaps. Suite: 114
 tests.
+
+**Sprint 3.7 — Rule engine ✅** (2026-07-14, ADR-030, see
+[MILESTONES/M0037.md](MILESTONES/M0037.md)): `services/rules/` — thirteen
+deterministic, individually-tested rules over confirmed OCR + normalized CRM,
+emitting canonical FindingDrafts; weighted risk/submission/branch scoring; config as
+data. `findingService` persistence (§5.5 workflow, idempotent per producer), and the
+orchestrator's MATCHING stage became the first REAL executor — `/findings` now shows
+persisted rule-engine output with a saved review workflow. Suite: 139 tests.
 
 Goal: reduce manual review effort on uploaded logbooks.
 

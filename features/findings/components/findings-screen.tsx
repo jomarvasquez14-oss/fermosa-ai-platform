@@ -1,51 +1,75 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   FindingsList,
   FindingsSummary,
-  canTransition,
   rollupFindings,
   type FindingStatus,
   type FindingView,
 } from "@/components/findings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { transitionFindingAction } from "@/features/findings/actions/finding-actions";
 
 /**
- * Findings workspace (Sprint 3.5). Runs on mock findings and keeps status
- * changes client-side — persistence and real producers arrive with the rule
- * engine. The banner says so (placeholder honesty, PROJECT_RULES 28).
+ * Findings workspace. Since Sprint 3.7 findings are REAL rows produced by
+ * the rule engine (via audit runs) and status changes persist. Until OCR and
+ * live CRM integrate, the engine's inputs are simulated — the banner says so.
  */
 export function FindingsScreen({ initialFindings }: { initialFindings: FindingView[] }) {
-  const [findings, setFindings] = useState(initialFindings);
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
 
-  function handleStatusChange(id: string, status: FindingStatus) {
-    setFindings((current) =>
-      current.map((finding) => {
-        if (finding.id !== id) return finding;
-        if (!canTransition(finding.status, status)) return finding;
-        return { ...finding, status };
-      })
-    );
-    toast.success(`Finding marked ${status.toLowerCase()}`, {
-      description: "Preview only — status changes are not persisted until producers ship.",
-    });
+  async function handleStatusChange(id: string, status: FindingStatus) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await transitionFindingAction(id, status);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`Finding marked ${status.toLowerCase()}`);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6">
       <Alert>
-        <AlertTitle>Preview with simulated findings</AlertTitle>
+        <AlertTitle>Real findings, simulated inputs</AlertTitle>
         <AlertDescription>
-          These findings are mock data illustrating the canonical output format. Real findings
-          arrive when the rule engine and CRM discovery are integrated; status changes here are not
-          saved.
+          These findings are produced by the deterministic rule engine during audit runs and your
+          status changes are saved. Until OCR and live CRM integration land, the engine evaluates
+          simulated logbook readings against mock CRM records.
         </AlertDescription>
       </Alert>
 
-      <FindingsSummary rollup={rollupFindings(findings)} />
-      <FindingsList findings={findings} onStatusChange={handleStatusChange} />
+      {initialFindings.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+            <p className="max-w-md text-sm text-muted-foreground">
+              No findings yet. Run an audit — open a submitted submission and start its audit run;
+              the matching stage writes findings here.
+            </p>
+            <Button asChild variant="outline">
+              <Link href="/audit">Go to submissions</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <FindingsSummary rollup={rollupFindings(initialFindings)} />
+          <FindingsList findings={initialFindings} onStatusChange={handleStatusChange} />
+        </>
+      )}
     </div>
   );
 }

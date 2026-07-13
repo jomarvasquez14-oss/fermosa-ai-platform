@@ -186,6 +186,12 @@ stateDiagram-v2
     CANCELLED --> [*]
 ```
 
+_Producer note (Sprint 3.7): the deterministic rule engine (`services/rules/`,
+ADR-030) is the first live producer — thirteen rules over confirmed logbook entries
+and normalized CRM records, with weighted risk/submission/branch scoring. Findings
+persist via `findingService`, idempotently per (submission, source), because findings
+are never deleted._
+
 #### 5.5-preview: Finding status workflow
 
 ```mermaid
