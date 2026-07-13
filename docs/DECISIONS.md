@@ -672,3 +672,35 @@ integration later only improves the engine's INPUTS. Rule changes are reviewable
 threshold changes are configuration. Known limitation: re-running matching after rule
 changes will not refresh existing findings (idempotency guard) — a versioned-rerun
 strategy is future work.
+
+## ADR-031: Browser automation framework with a driver seam and mock-only implementation
+
+**Status:** Accepted _(2026-07-14, Sprint 3.9)_
+
+**Context:** CRM integration will drive the legacy CRM's web UI (CRM_DISCOVERY, ADR-027),
+but live automation is gated on inputs we don't have (login capture, sanctioned service
+account). Waiting would leave session handling, selector versioning, and failure
+recovery undesigned until the riskiest possible moment.
+
+**Decision:** `services/browser/` ships the complete framework with the real browser
+abstracted behind a six-method `BrowserDriver` interface — `MockBrowserDriver` (an
+in-memory, scriptable CRM simulation) is the ONLY implementation; the Playwright
+driver arrives with sanctioned CRM integration and changes nothing above it.
+Load-bearing choices: (1) **versioned SelectorRegistry** (`crm-selectors/v1`, shaped by
+the reference captures) — selectors never live in page objects; a CRM redesign is a new
+map version, and every page validates a structural **fingerprint** before use, failing
+as CRM_LAYOUT naming the missing selector. (2) **Seven page objects** (Base + the six
+CRM pages) own behavior only. (3) **BrowserSession**: login (CSRF-form style), logout,
+expiry detection as the every-navigation invariant, ONE auto-reconnect, health check;
+credentials in memory only. (4) **NavigationManager**: navigate → wait → verify →
+recover, with retry limited to transient failures — CRM_FORBIDDEN, CRM_CHALLENGE
+(CAPTCHA: stop, never bypass), and CRM_LAYOUT never retry. (5) **Policies as data**
+(retry attempts/delay, navigation/action timeouts). (6) Typed error taxonomy shared
+with CRM discovery (`CRM_TIMEOUT/LAYOUT/FORBIDDEN/SESSION/CHALLENGE/UNAVAILABLE`).
+(7) `/dev/browser` (Super Admin) exercises everything against the mock: session,
+navigation history, selector registry table, and armed failure simulations.
+
+**Consequences:** Sprint 3's real CRM automation reduces to writing one Playwright
+driver + confirming v1 selectors against the login capture. Recovery behavior is
+already tested and demonstrable, so selector maintenance and session flakiness —
+the two chronic costs of scraping — have their playbooks before the first real run.

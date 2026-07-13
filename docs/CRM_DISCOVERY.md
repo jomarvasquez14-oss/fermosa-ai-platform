@@ -171,7 +171,15 @@ history), **Invoice list** (`/invoice`, filtered), **Activity Logs**
 (`/activity-logs` + filters). Dashboard/reports/masterlist are out of scope for v1
 retrieval (reports may later serve reconciliation cross-checks).
 
-## 5. Browser Automation Strategy (design; implementation is Sprint 3)
+## 5. Browser Automation Strategy (framework shipped in Sprint 3.9; live automation pending)
+
+> _Status: everything below except the real browser driver exists in
+> `services/browser/` (ADR-031) — versioned selector registry with structural
+> fingerprints, page objects, session lifecycle with auto-reconnect,
+> navigate/retry/recover policies, typed errors, and a `/dev/browser` playground
+> running against a scriptable mock CRM. Live automation still awaits: a Playwright
+> `BrowserDriver` adapter, v1 selectors confirmed against a login capture, and the
+> sanctioned service account (§8)._
 
 The first `CRMConnector` implementation drives a real browser (Playwright is the
 intended tool per roadmap — not implemented now). Design decisions:

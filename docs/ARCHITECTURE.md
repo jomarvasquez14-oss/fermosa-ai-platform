@@ -80,6 +80,8 @@ its own service later without untangling the codebase. See [DECISIONS.md](DECISI
 │   ├── crm/                 # CRMConnector strategy interface + factory (§11)
 │   ├── audit/               # AuditService seam → orchestrator (ADR-029, §11)
 │   ├── orchestrator/        # Audit workflow engine: jobs, stages, state machine (3.6)
+│   ├── rules/               # Deterministic rule engine → findings (3.7, ADR-030)
+│   ├── browser/             # Browser automation framework, mock driver (3.9, ADR-031)
 │   └── storage/             # StorageProvider seam + local backend (2A.2, ADR-024)
 ├── hooks/ types/ utils/     # Shared hooks, global types, pure helpers
 ├── prisma/                  # schema.prisma, migrations, seed.ts

@@ -23,6 +23,7 @@
 | **M3 / 3.5**    | Audit findings engine (canonical output, mock UI)   | ✅ **Complete** (2026-07-14) |
 | **M3 / 3.6**    | Audit orchestrator (workflow layer, mock executors) | ✅ **Complete** (2026-07-14) |
 | **M3 / 3.7**    | Rule engine (deterministic, findings out)           | ✅ **Complete** (2026-07-14) |
+| **M3 / 3.9**    | Browser automation framework (mock driver only)     | ✅ **Complete** (2026-07-14) |
 | **M2**          | Audit module core                                   | Next                         |
 | **M3**          | AI-assisted auditing                                | Planned                      |
 | **M4**          | Reports & administration                            | Planned                      |
@@ -198,6 +199,16 @@ emitting canonical FindingDrafts; weighted risk/submission/branch scoring; confi
 data. `findingService` persistence (§5.5 workflow, idempotent per producer), and the
 orchestrator's MATCHING stage became the first REAL executor — `/findings` now shows
 persisted rule-engine output with a saved review workflow. Suite: 139 tests.
+
+**Sprint 3.9 — Browser automation framework ✅** (2026-07-14, ADR-031, see
+[MILESTONES/M0039.md](MILESTONES/M0039.md)): `services/browser/` — the complete
+automation architecture behind a six-method `BrowserDriver` seam, with the scriptable
+mock driver as the only implementation. Versioned selector registry with structural
+fingerprints, seven page objects, session lifecycle with expiry auto-reconnect,
+navigate/retry/recover, typed CRM error taxonomy, and the `/dev/browser` playground.
+Real CRM automation later = one Playwright driver + confirmed selectors. Suite: 154
+tests. **Sprint 3.8 (OCR integration) remains intentionally skipped until real logbook
+samples arrive.**
 
 Goal: reduce manual review effort on uploaded logbooks.
 

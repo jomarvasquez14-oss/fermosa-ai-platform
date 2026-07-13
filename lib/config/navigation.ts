@@ -4,6 +4,7 @@ import {
   DatabaseZap,
   FileBarChart,
   FlaskConical,
+  Globe,
   LayoutDashboard,
   SearchCheck,
   Settings,
@@ -54,6 +55,12 @@ export const MAIN_NAV: readonly NavItem[] = [
     title: "CRM Dev",
     href: "/dev/crm",
     icon: DatabaseZap,
+    roles: [ROLES.SUPER_ADMIN],
+  },
+  {
+    title: "Browser Dev",
+    href: "/dev/browser",
+    icon: Globe,
     roles: [ROLES.SUPER_ADMIN],
   },
 ];
