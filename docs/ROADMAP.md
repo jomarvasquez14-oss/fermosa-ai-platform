@@ -26,9 +26,10 @@
 | **M3 / 3.9**     | Browser automation framework (mock driver only)     | ✅ **Complete** (2026-07-14) |
 | **v0.6.1 / 4.0** | Engineering excellence (CI, telemetry, DX, reviews) | ✅ **Complete** (2026-07-14) |
 | **M0041 / 4.1**  | CRM browser connector (Playwright; live-gated)      | ✅ **Complete** (2026-07-14) |
-| **M0042 / 4.2**  | Live CRM validation + `/dev/browser` cockpit        | ⏸ **Blocked on credentials** (cockpit ✅ 2026-07-14) |
+| **M0042 / 4.2**  | Live CRM validation + `/dev/browser` cockpit        | ✅ **Cockpit complete** (2026-07-14) |
 | **M0043 / 4.3**  | Audit evidence snapshot engine                      | ✅ **Complete** (2026-07-14) |
 | **M0042A / 4.2a**| Connector validated vs real CRM captures            | ✅ **Complete** (2026-07-14) |
+| **M0044 / 4.4**  | Live CRM validation vs production (read path)       | ✅ **Validated** (2026-07-14; invoice-detail deferred) |
 | **M2**           | Audit module core                                   | Next                         |
 | **M3**           | AI-assisted auditing                                | Planned                      |
 | **M4**           | Reports & administration                            | Planned                      |
