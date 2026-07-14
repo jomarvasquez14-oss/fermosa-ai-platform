@@ -35,6 +35,7 @@
 | **M0047 / 4.7**  | Rule engine expansion (10 new deterministic rules)  | ✅ **Complete** (2026-07-14) |
 | **M0049 / 6.1**  | Complete live CRM validation (full checklist)       | ✅ **Complete** (2026-07-14; 4 live-only defects fixed; invoice-detail still gated) |
 | **M0050 / 6.2**  | Production CRM dataset builder (sweep modes, ADR-037)| ✅ **Complete** (2026-07-14; enumeration + derived branch/date, snapshot seal, verify) |
+| **M0051 / 6.3**  | Pilot audit dataset (reproducible audit packages)   | ✅ **Complete** (2026-07-14; per-file + package hashes, self-verifying) |
 | **M2**           | Audit module core                                   | Next                         |
 | **M3**           | AI-assisted auditing                                | Planned                      |
 | **M4**           | Reports & administration                            | Planned                      |

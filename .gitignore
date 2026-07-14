@@ -58,3 +58,7 @@ docs/crm-reference/
 # Generated CRM dataset output (M0045) — reproducible from the connector on
 # demand; never committed.
 datasets/
+
+# Generated audit packages (M0051) — reproducible evidence bundles built from
+# the read-only CRM; contain PII, never committed.
+audit-packages/
