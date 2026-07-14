@@ -14,7 +14,13 @@ and the **CRM browser connector** (M0041) — Playwright Chromium behind the
 `CRMConnector` seam. Select it with `CRM_CONNECTOR=playwright` plus
 `CRM_URL`/`CRM_USERNAME`/`CRM_PASSWORD` (read-only service account; requires
 `pnpm exec playwright install chromium` once). The default remains the mock connector —
-no browser, no live CRM contact.
+no browser, no live CRM contact. `/dev/browser` is the supervised live-validation
+cockpit (M0042 — live validation itself is still blocked on credentials), and the
+**audit evidence snapshot engine** (M0043, `/dev/snapshot`) seals what the CRM said at
+audit time as immutable, hash-verified evidence — the CRM stays the only source of
+truth; the platform never mirrors it. Selectors are **capture-replay-verified**
+(M0042A): the real page objects execute against real CRM DOM captures in real
+Chromium, with each page's evidence grade shown in `/dev/browser`.
 
 ## Tech Stack
 

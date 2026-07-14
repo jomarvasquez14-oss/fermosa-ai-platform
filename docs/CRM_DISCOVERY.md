@@ -184,6 +184,31 @@ retrieval (reports may later serve reconciliation cross-checks).
 > a login-page capture (its v1 selectors are provisional), and the invoice-detail
 > trigger (payments stay `null` behind the `invoiceDetail` capability flag until
 > confirmed)._
+>
+> _Status update (M0042, ADR-034): live validation was attempted and remains
+> **blocked** — no credentials exist in `.env`; the selector map is still v1,
+> untouched, because nothing live was observed to correct against. `/dev/browser` is
+> now the supervised validation cockpit (credential badges, connector health, patient
+> search, open patient, normalized-JSON preview through `getCRMConnector()`), so the
+> M0041 checklist becomes a button-clicking session the day credentials land. What the
+> CRM record feeds once retrieved: M0043's `AuditEvidenceSnapshot` (hash-sealed,
+> append-only audit evidence — ADR-035)._
+>
+> _Status update (M0042A, ADR-036): the selector map WAS then validated against real
+> captures — login (the §8 blind spot, now closed: `input[name=email]` + password in
+> a Laravel CSRF POST form, NO captcha), fresh dashboard + patients saves, and the
+> CRM's own `announcements.js`. A capture-replay harness
+> (`docs/crm-reference/verify-captures.mts`) executes the real page objects against
+> the captured DOM in real Chromium: 27/27 pass. v1 was patched in place
+> (non-breaking). Three live-behavior facts every future page object must respect:
+> (1) the **announcement modals** (`#instant-announcement-modal`,
+> `#announcement-checklist-modal`) are re-polled every 5s on every authenticated page
+> and their close buttons POST mark-as-read — automation neutralizes the nodes
+> client-side and never clicks them; (2) tables can ship **CSS-hidden until page JS
+> initializes** them — fingerprints must wait, not probe; (3) **select2** replaces
+> filter selects and hides the native element permanently — plain inputs only in
+> fingerprints. Still unverified: the invoice tab's post-AJAX DOM and the invoice
+> DETAIL view (capability off)._
 
 The first `CRMConnector` implementation drives a real browser. Design decisions:
 

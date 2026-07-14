@@ -26,6 +26,9 @@
 | **M3 / 3.9**     | Browser automation framework (mock driver only)     | ✅ **Complete** (2026-07-14) |
 | **v0.6.1 / 4.0** | Engineering excellence (CI, telemetry, DX, reviews) | ✅ **Complete** (2026-07-14) |
 | **M0041 / 4.1**  | CRM browser connector (Playwright; live-gated)      | ✅ **Complete** (2026-07-14) |
+| **M0042 / 4.2**  | Live CRM validation + `/dev/browser` cockpit        | ⏸ **Blocked on credentials** (cockpit ✅ 2026-07-14) |
+| **M0043 / 4.3**  | Audit evidence snapshot engine                      | ✅ **Complete** (2026-07-14) |
+| **M0042A / 4.2a**| Connector validated vs real CRM captures            | ✅ **Complete** (2026-07-14) |
 | **M2**           | Audit module core                                   | Next                         |
 | **M3**           | AI-assisted auditing                                | Planned                      |
 | **M4**           | Reports & administration                            | Planned                      |
@@ -234,6 +237,38 @@ objects (patients, profile, treatment/invoice tabs, activity log), session manag
 `CRM_LAYOUT`, never silent. Suite: 211 tests + a real-Chromium smoke test. **Live
 verification is gated on the read-only service account** (login capture + invoice-
 detail trigger are the remaining selector gaps).
+
+**M0042 — Live CRM validation ⏸ / validation cockpit ✅** (2026-07-14, ADR-034, see
+[MILESTONES/M0042.md](MILESTONES/M0042.md)): the live phases (auth, navigation,
+connector, parser, robustness) **did not run** — `.env` still has no
+`CRM_URL`/`CRM_USERNAME`/`CRM_PASSWORD`, and the selector registry honestly stays at
+v1 untouched. What shipped: `/dev/browser` grew the supervised validation cockpit
+(credential-presence badges, connector health, patient search, open patient,
+normalized-JSON preview — all through `getCRMConnector()`), so the moment credentials
+exist, live validation is a supervised button-clicking session against the M0041
+checklist.
+
+**M0043 — Audit evidence snapshot engine ✅** (2026-07-14, ADR-035, see
+[MILESTONES/M0043.md](MILESTONES/M0043.md)): `AuditEvidenceSnapshot` (one table,
+linked only to `AuditSubmission`; no patient/treatment tables, ever) stores the full
+`NormalizedCrmPatientRecord` as hash-sealed, append-only evidence with provenance
+(connector kind, selector version, retrievedAt, window, format version).
+`services/crm/snapshot/` implements create/load/validate/compare with loud
+`EVIDENCE_INVALID`/`EVIDENCE_INTEGRITY` failures; `/dev/snapshot` is the capture &
+comparison playground. The CRM remains the only source of truth — audits become
+reproducible after it changes. Suite: 233 tests. Orchestrator wiring
+(`CRM_RETRIEVAL` → `createSnapshot`) is deliberately deferred to OCR integration.
+
+**M0042A — Connector validated vs real CRM captures ✅** (2026-07-14, ADR-036, see
+[MILESTONES/M0042A.md](MILESTONES/M0042A.md)): the login capture landed (blind spot
+closed — `input[name=email]`, no captcha) plus fresh dashboard/patients saves and the
+CRM's `announcements.js`. A capture-replay harness (real Chromium driving the real
+page objects against offline file:// captures, 27/27) caught and fixed three real
+bugs: hidden bookkeeping inputs corrupting cell values, instant fingerprints racing
+CSS-hidden-until-JS tables (fingerprints now wait), and select2-hidden native selects
+in fingerprints. Announcement modals are now NEUTRALIZED client-side (their close
+buttons POST mark-as-read — a write automation must never perform). v1 patched in
+place; `invoiceDetail` stays off (detail view still uncaptured). Suite: 234 tests.
 
 Goal: reduce manual review effort on uploaded logbooks.
 

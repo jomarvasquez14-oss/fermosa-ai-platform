@@ -226,10 +226,11 @@ model AuditSubmission {
   submittedById String @map("submitted_by_id")
   submittedBy   User   @relation("SubmittedBy", fields: [submittedById], references: [id], onDelete: Restrict)
 
-  images       LogbookImage[]
-  trailEntries AuditTrailEntry[]
-  findings     AuditFinding[]
-  jobs         AuditJob[]
+  images            LogbookImage[]
+  trailEntries      AuditTrailEntry[]
+  findings          AuditFinding[]
+  jobs              AuditJob[]
+  evidenceSnapshots AuditEvidenceSnapshot[]
 
   submittedAt DateTime? @map("submitted_at")
   completedAt DateTime? @map("completed_at")
@@ -374,6 +375,55 @@ model AuditFinding {
   @@index([category])
   @@index([severity])
   @@map("audit_findings")
+}
+
+// ---------------------------------------------------------------------------
+// Audit evidence snapshots (M0043, ADR-035). The CRM stays the ONLY source of
+// truth for operational data — the platform deliberately has NO Patient or
+// Treatment tables and never synchronizes the CRM. This table stores immutable
+// EVIDENCE: what the CRM looked like at the exact moment an audit read it, so
+// every audit stays reproducible even after the CRM changes. Rows are
+// append-only: never updated, never deleted independently of the submission.
+// ---------------------------------------------------------------------------
+
+model AuditEvidenceSnapshot {
+  id String @id @default(cuid())
+
+  // Owned by the submission aggregate — the ONLY relation this table has.
+  submissionId String          @map("submission_id")
+  submission   AuditSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  /// The CRM's own patient id (provenance string, deliberately NOT a foreign
+  /// key — no patient master table exists on the platform).
+  crmPatientId String @map("crm_patient_id")
+
+  /// Full NormalizedCrmPatientRecord (ADR-027) — validated against the Zod
+  /// schema before persisting and again on every load.
+  record Json
+
+  /// SHA-256 over the canonical (sorted-key) record JSON. Verified on load;
+  /// a mismatch means the evidence was tampered with or corrupted.
+  contentHash String @map("content_hash")
+
+  // Provenance — "when and how was this true?"
+  connectorKind   String   @map("connector_kind")
+  /// Version of the retrieval source: selector-map version for the browser
+  /// connector, fixture version for the mock (first token of sourceRef).
+  selectorVersion String   @map("selector_version")
+  retrievedAt     DateTime @map("retrieved_at")
+
+  /// Inclusive retrieval window (yyyy-mm-dd) when one was applied.
+  windowFrom String? @map("window_from")
+  windowTo   String? @map("window_to")
+
+  /// Snapshot FORMAT version — bump via ADR when the stored shape changes.
+  snapshotVersion Int @default(1) @map("snapshot_version")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([submissionId, createdAt])
+  @@index([crmPatientId])
+  @@map("audit_evidence_snapshots")
 }
 
 // Immutable business-event log for one submission (Sprint 2A.2). Rows are

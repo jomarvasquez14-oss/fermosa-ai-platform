@@ -770,3 +770,99 @@ is still the gating input), invoice payments stay `null` until the detail trigge
 confirmed (capability off), and the Playwright driver itself is verified by a
 local-page smoke test rather than unit tests — live verification is an explicit
 follow-up blocked on credentials.
+
+## ADR-034: Live CRM validation is a supervised, credential-gated activity with a purpose-built cockpit
+
+**Status:** Accepted _(2026-07-14, M0042)_
+
+**Context:** M0042's objective was to validate the Playwright connector against the
+live CRM. At execution time `.env` contained no `CRM_URL`/`CRM_USERNAME`/`CRM_PASSWORD`
+— the read-only service account does not exist yet. Validating selectors, parsers, and
+session behavior without live access is not possible honestly; changing the selector
+map without observing the live DOM would be guesswork.
+
+**Decision:** (1) Live validation is **gated, not simulated**: Phases 1–5 of M0042 are
+recorded as blocked rather than approximated, the selector registry stays at
+`crm-selectors/v1` untouched, and no "fixes" were invented. (2) `/dev/browser` becomes
+the **supervised validation cockpit**: credential-presence badges (never values),
+connector health, patient search, open-patient, and normalized-JSON preview — all
+through `getCRMConnector()`, so the identical UI drives the mock today and the live
+CRM the moment `CRM_CONNECTOR=playwright` plus credentials exist. First live runs are
+expected to be watched (`CRM_BROWSER_HEADLESS=false`). (3) Validation evidence, when
+produced, is recorded in MILESTONES/M0042.md against the M0041 checklist.
+
+**Consequences:** No false confidence: the map version only moves when live DOM
+evidence justifies it. The cockpit removes the last tooling excuse — once credentials
+land, validation is a button-clicking session, not an engineering sprint. Cost: M0042
+ships "incomplete" by design, and the service account remains the single gating input
+for everything live.
+
+## ADR-035: Immutable audit evidence snapshots — the platform never becomes a CRM
+
+**Status:** Accepted _(2026-07-14, M0043)_
+
+**Context:** Audits compare logbooks against CRM facts, but the CRM is live: records
+get edited, paid, and deleted after the audit date (sometimes that IS the finding).
+Findings must stay defensible after the CRM moves on. The tempting shape — mirroring
+patients/treatments into platform tables — would slowly turn the platform into a
+second CRM with all the sync problems that implies. DOMAIN_MODEL's future
+`CrmComparison` already anticipated a "records JSON snapshot" for reproducibility.
+
+**Decision:** (1) One table, `AuditEvidenceSnapshot`, linked ONLY to
+`AuditSubmission` (aggregate-owned, cascade); `crmPatientId` is a provenance string,
+deliberately NOT a foreign key — **no Patient/Treatment tables exist, ever**. (2) The
+row stores the full `NormalizedCrmPatientRecord` (ADR-027, unchanged) as jsonb plus
+provenance (connector kind, selector version, retrievedAt, retrieval window, stored-
+format version) and a **SHA-256 content hash over a canonical sorted-key stringify**
+(jsonb does not preserve key order). (3) Rows are **append-only**: the service exposes
+no update/delete; loading re-validates the Zod schema (`EVIDENCE_INVALID`) and the
+hash (`EVIDENCE_INTEGRITY`) — corrupt evidence fails loudly, including in list views.
+(4) **Two hashes**: `contentHash` (full record, tamper seal) vs `evidenceHash`
+(business sections only) so snapshot-vs-live comparison ignores `retrievedAt` churn.
+(5) `compareSnapshotMetadata` reports metadata-level drift only — interpreting drift
+into findings remains the rule engine's job. (6) Retrieval always goes through
+`getCRMConnector()`; the engine is connector-agnostic.
+
+**Consequences:** Every audit is reproducible from its own evidence, and post-audit
+CRM edits become detectable rather than history-rewriting. The future `CrmComparison`
+entity, if it ships, references snapshots instead of embedding records. Costs: full-
+history snapshots can be large (retrieval windows bound this; OCR integration should
+default to windowed captures), and orchestrator wiring (`CRM_RETRIEVAL` stage →
+`createSnapshot`) is deliberately deferred to the pipeline-integration sprint.
+
+## ADR-036: Capture-replay verification and read-only interstitial neutralization
+
+**Status:** Accepted _(2026-07-14, M0042A)_
+
+**Context:** Live validation stayed credential-blocked, but real artifacts arrived:
+a login-page capture (the M0041 blind spot), fresh Complete-saves of the dashboard
+and patients pages with their JS bundles, and — critically — `announcements.js`,
+which revealed that the CRM's announcement modals are re-polled every 5 seconds on
+every authenticated page and can only be "properly" closed by an attestation that
+POSTs mark-as-read. Mock-driver tests could never catch bugs that live in the real
+DOM's shape.
+
+**Decision:** (1) **Capture-replay is a standing verification layer**:
+`docs/crm-reference/verify-captures.mts` (local-only) drives the real
+PlaywrightBrowserDriver against offline file:// copies of the captures and executes
+the actual page objects/parsers. It immediately caught three real bugs — hidden
+bookkeeping inputs corrupting cell values (`treatment_record_id` shares the DATE
+cell), instant fingerprint probes racing the CRM's CSS-hidden-until-JS tables, and
+select2 permanently hiding native selects used as fingerprints. Fixes: cell
+extraction skips `[type=hidden]`; `assertFingerprint` waits (10s) for visibility;
+the activity fingerprint uses a plain input. (2) **Announcements are neutralized,
+never dismissed**: clicking the CRM's close button is a WRITE (mark-as-read with
+read-time metrics / checklist completion), so automation removes the modal nodes
+client-side (which also defeats the 5s re-poll), after login and after every
+navigation; the mark-as-read controls are `neverInteract`. (3) **v1 was patched in
+place** — corrections are non-breaking (same structure, same page objects);
+`invoiceDetail` stays off because no artifact shows the detail view or its trigger.
+Every page entry now records its `verification` level, surfaced in `/dev/browser`.
+
+**Consequences:** Selector confidence is now evidence-graded instead of binary, and
+re-verification after any capture or selector change is one command. The read-only
+contract now provably covers the interstitials (announcements stay unread for real
+staff — a deliberate, documented trade-off). Costs: the harness's first run fetched
+static assets from the live site before offline-stripping was added (no auth, no
+data sent — now prevented), and replay cannot verify AJAX-populated states (the
+invoice tab's populated DOM remains a live-gated unknown).

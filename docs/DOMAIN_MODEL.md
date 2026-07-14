@@ -207,6 +207,27 @@ Rules: resolution always passes through review (no OPEN → RESOLVED); findings 
 never deleted; reopening is legal from any settled state because audits can be
 challenged.
 
+### AuditEvidenceSnapshot _(shipped in M0043, ADR-035)_
+
+Immutable, hash-sealed evidence of what the CRM said at the moment an audit read it —
+owned by the submission aggregate (`submissionId`, cascade), one row per capture, many
+per submission (an audit day covers many patients). Stores the full
+`NormalizedCrmPatientRecord` (ADR-027) as jsonb plus provenance: `connectorKind`,
+`selectorVersion`, `retrievedAt`, retrieval window, `snapshotVersion` (stored-format
+version), and a SHA-256 `contentHash` over a canonical sorted-key serialization.
+
+Invariants (service-enforced, like the audit trail's):
+
+- **Append-only** — `snapshotService` exposes no update or delete; rows leave the
+  database only with their submission.
+- **Valid evidence only** — records are Zod-validated before persisting and re-validated
+  (schema + hash) on every load; failures are loud (`EVIDENCE_INVALID`,
+  `EVIDENCE_INTEGRITY`), never best-effort.
+- **No replication** — `crmPatientId` is a provenance string, NOT a foreign key. The
+  platform deliberately has no Patient or Treatment tables; the CRM remains the only
+  source of truth. Snapshots make audits reproducible after the CRM changes — they are
+  evidence, not a mirror.
+
 ### Future entities — documented now, persisted when their milestone arrives
 
 Per ADR-019 (no empty stubs), these get schema when their feature ships, but their
@@ -218,8 +239,9 @@ shape is fixed now so 2A.2/M3 build toward it:
   `reviewedById?`, `corrections?` (JSON), attempt counter. Re-runs create new attempts;
   review happens on the latest.
 - **`CrmComparison`** (M3) — owned by the submission: `submissionId`, `status` (§5.4),
-  `connectorKind`, matched/unmatched counts, `records` (JSON snapshot of what the CRM
-  returned — comparisons must be reproducible even after the CRM changes).
+  `connectorKind`, matched/unmatched counts. _(Amended by M0043/ADR-035: the CRM
+  records themselves live in `AuditEvidenceSnapshot` rows — a comparison references
+  snapshot ids instead of embedding record JSON.)_
 - **`AuditReport`** (M3) — 1:1 with the submission: `submissionId`, `generatedAt`,
   `storageKey` (rendered artifact), `summary`. Immutable once generated; regeneration
   supersedes with a new version rather than editing.
@@ -231,6 +253,7 @@ erDiagram
     Branch ||--o{ AuditSubmission : "submits"
     User   ||--o{ AuditSubmission : "submitted by"
     AuditSubmission ||--o{ LogbookImage : "owns (ordered)"
+    AuditSubmission ||--o{ AuditEvidenceSnapshot : "owns (append-only, M0043)"
     LogbookImage ||--o| OcrResult : "future (M3)"
     AuditSubmission ||--o| CrmComparison : "future (M3)"
     AuditSubmission ||--o| AuditReport : "future (M3)"

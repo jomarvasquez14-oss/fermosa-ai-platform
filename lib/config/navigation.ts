@@ -1,5 +1,6 @@
 import {
   Building2,
+  Camera,
   ClipboardCheck,
   DatabaseZap,
   FileBarChart,
@@ -61,6 +62,12 @@ export const MAIN_NAV: readonly NavItem[] = [
     title: "Browser Dev",
     href: "/dev/browser",
     icon: Globe,
+    roles: [ROLES.SUPER_ADMIN],
+  },
+  {
+    title: "Snapshot Dev",
+    href: "/dev/snapshot",
+    icon: Camera,
     roles: [ROLES.SUPER_ADMIN],
   },
 ];

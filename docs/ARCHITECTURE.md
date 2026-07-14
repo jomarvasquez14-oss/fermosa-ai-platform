@@ -77,13 +77,15 @@ its own service later without untangling the codebase. See [DECISIONS.md](DECISI
 │   ├── *-service.ts         # Data-access services — the ONLY code importing Prisma
 │   ├── ai/                  # AIProvider seam: ocr-schema, prompts/ (versioned),
 │   │                        #   providers/mock (3.0); real providers in 3.x (§11)
-│   ├── crm/                 # CRMConnector strategy interface + factory (§11)
+│   ├── crm/                 # CRMConnector strategy interface + factory (§11);
+│   │                        #   snapshot/ — immutable audit evidence engine (M0043, ADR-035)
 │   ├── audit/               # AuditService seam → orchestrator (ADR-029, §11)
 │   ├── orchestrator/        # Audit workflow engine: jobs, stages, state machine (3.6)
 │   ├── rules/               # Deterministic rule engine → findings (3.7, ADR-030)
 │   ├── browser/             # Browser automation: driver seam, Playwright + mock drivers,
 │   │                        #   versioned selectors, page objects, session/navigation
-│   │                        #   (3.9 ADR-031; real driver M0041 ADR-033)
+│   │                        #   (3.9 ADR-031; real driver M0041 ADR-033; selectors
+│   │                        #   capture-replay-verified M0042A ADR-036)
 │   └── storage/             # StorageProvider seam + local backend (2A.2, ADR-024)
 ├── hooks/ types/ utils/     # Shared hooks, global types, pure helpers
 ├── prisma/                  # schema.prisma, migrations, seed.ts
@@ -246,6 +248,14 @@ Boundary rules (binding, see [PROJECT_RULES.md](PROJECT_RULES.md) and
 Validated configuration for these seams (and everything else server-side) comes from
 `lib/config/env.ts` — a lazily-parsed, Zod-validated, `server-only` view of
 `process.env` that fails fast with precise messages.
+
+**Evidence, not replication (M0043, ADR-035):** the CRM remains the only source of
+truth for operational data — the platform has NO patient or treatment tables and never
+synchronizes the CRM. What audits need is preserved by `services/crm/snapshot/`:
+`AuditEvidenceSnapshot` rows (owned by `AuditSubmission`) store the full normalized
+record as hash-sealed, append-only evidence with provenance (connector kind, selector
+version, retrievedAt, window). Loading re-validates schema and hash; corrupt evidence
+fails loudly (`EVIDENCE_INVALID` / `EVIDENCE_INTEGRITY`).
 
 ## 12. Event Architecture
 
