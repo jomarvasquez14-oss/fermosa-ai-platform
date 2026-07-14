@@ -402,8 +402,62 @@ describe("registration", () => {
     for (const rule of BUILT_IN_RULES) expect(ids).toContain(rule.id);
   });
 
-  it("createRuleEngine() wires the extended rules in without throwing", () => {
-    expect(() => createRuleEngine()).not.toThrow();
+  it("createRuleEngine() actually wires every built-in and extended rule (catches a dropped registration)", () => {
+    // Rich enough that all 23 rules (13 built-in + 10 extended) each evaluate
+    // at least one entry/record and emit a result. A regression that drops
+    // `...EXTENDED_RULES` (or `...BUILT_IN_RULES`) from createRuleEngine in
+    // rule-engine.ts would shrink `ids` below the full set and fail this test
+    // — `.not.toThrow()` alone would not have caught that.
+    const auditDate = "2026-07-10";
+    const rec = record({
+      treatments: [
+        treatment({
+          packageName: "Slimming Package",
+          sessionNumber: 1,
+          sessionsTotal: 6,
+        }),
+      ],
+      invoices: [
+        invoice({
+          serviceName: "Slimming Package", // matches treatment.packageName, not procedure
+          payments: [
+            {
+              paidAt: auditDate,
+              amount: "1500.00",
+              mode: "cash",
+              receivedBy: "J. Cruz",
+              referenceNo: null,
+            },
+          ],
+        }),
+      ],
+      activity: [
+        activityEvent({ logName: "deleted" }),
+        activityEvent({
+          logName: "updated",
+          changes: [{ field: "amount_paid", oldValue: "1000.00", newValue: "1500.00" }],
+        }),
+      ],
+    });
+
+    const found = entry({ lineNumber: 1 });
+    const duplicateOfFound = entry({ lineNumber: 2 });
+    const ambiguous = entry({ lineNumber: 3, patientName: "Ambiguous Patient" });
+
+    const report = createRuleEngine().evaluate({
+      submission: { id: "sub-wiring", branchName: "Fermosa Tejero", auditDate },
+      entries: [found, duplicateOfFound, ambiguous],
+      resolutions: [
+        { entryKey: "1:1", outcome: "found", crmPatientId: "c-1" },
+        { entryKey: "1:2", outcome: "found", crmPatientId: "c-1" },
+        { entryKey: "1:3", outcome: "ambiguous", crmPatientId: null, candidateIds: ["c-1", "c-2"] },
+      ],
+      crmRecords: [rec],
+    });
+
+    const ids = new Set(report.results.map((r) => r.ruleId));
+    for (const rule of EXTENDED_RULES) expect(ids.has(rule.id)).toBe(true); // new rules wired
+    for (const rule of BUILT_IN_RULES) expect(ids.has(rule.id)).toBe(true); // no regression
   });
 });
 

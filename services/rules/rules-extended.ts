@@ -247,7 +247,9 @@ export const impossibleSessionSequenceRule: Rule = {
     const results: RuleResult[] = [];
     for (const record of context.crmRecords) {
       for (const [packageName, treatments] of groupByPackage(record)) {
-        const ordered = [...treatments].sort((a, b) => a.performedAt.localeCompare(b.performedAt));
+        const ordered = [...treatments].sort((a, b) =>
+          a.performedAt < b.performedAt ? -1 : a.performedAt > b.performedAt ? 1 : 0
+        );
         let previous: { performedAt: string; sessionNumber: number } | null = null;
         let violation: { performedAt: string; sessionNumber: number } | null = null;
         for (const treatment of ordered) {
