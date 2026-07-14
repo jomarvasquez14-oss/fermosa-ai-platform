@@ -1,15 +1,14 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { BrowserManager } from "./browser-manager";
-import { MockBrowserDriver } from "./drivers/mock-driver";
+import { MockBrowserDriver } from "./drivers/mock/mock-driver";
 import { withRetry, withTimeout } from "./policies";
-import { SelectorRegistry } from "./selector-registry";
+import { SelectorRegistry } from "./selectors";
 import { browserError } from "./types";
-import { PatientSearchPage } from "./pages";
 
 const credentials = { username: "fermosa-audit-bot", password: "test" };
 
-function manager(driver = new MockBrowserDriver()) {
+function makeManager(driver = new MockBrowserDriver()) {
   return {
     driver,
     manager: new BrowserManager(driver, credentials, new SelectorRegistry(), {
@@ -24,12 +23,17 @@ describe("SelectorRegistry", () => {
 
   it("resolves versioned selectors and fingerprints", () => {
     expect(registry.version).toBe("crm-selectors/v1");
-    expect(registry.selector("login", "username")).toBe("input[name=username]");
+    expect(registry.selector("patient-search", "nameInput")).toBe("input[name=search]");
     expect(registry.fingerprint("dashboard").length).toBeGreaterThan(0);
   });
 
   it("unknown selector keys fail loudly as CRM_LAYOUT", () => {
     expect(() => registry.selector("login", "nonexistent")).toThrow(/not defined/);
+  });
+
+  it("capabilities gate unconfirmed selectors (invoice detail is off in v1)", () => {
+    expect(registry.capability("invoiceDetail")).toBe(false);
+    expect(registry.capability("unknown-capability")).toBe(false);
   });
 });
 
@@ -53,14 +57,16 @@ describe("policies", () => {
   });
 
   it("withRetry never retries captcha/layout/forbidden", async () => {
-    let attempts = 0;
-    await expect(
-      withRetry({ maxAttempts: 5, delayMs: 1 }, async () => {
-        attempts++;
-        throw browserError("CRM_CHALLENGE", "captcha");
-      })
-    ).rejects.toThrow(/captcha/);
-    expect(attempts).toBe(1);
+    for (const code of ["CRM_CHALLENGE", "CRM_LAYOUT", "CRM_FORBIDDEN"] as const) {
+      let attempts = 0;
+      await expect(
+        withRetry({ maxAttempts: 5, delayMs: 1 }, async () => {
+          attempts++;
+          throw browserError(code, code);
+        })
+      ).rejects.toMatchObject({ code });
+      expect(attempts).toBe(1);
+    }
   });
 
   it("withTimeout maps expiry to CRM_TIMEOUT", async () => {
@@ -72,35 +78,54 @@ describe("policies", () => {
 
 describe("session lifecycle", () => {
   it("logs in through the login page and reaches the dashboard", async () => {
-    const { manager: m } = manager();
-    await m.session.login();
-    expect(m.session.status).toBe("authenticated");
-    expect((await m.session.healthCheck()).ok).toBe(true);
+    const { manager } = makeManager();
+    await manager.session.login();
+    expect(manager.session.status).toBe("authenticated");
+    expect((await manager.session.healthCheck()).ok).toBe(true);
+  });
+
+  it("performs exactly one login per execution (ensureAuthenticated reuses)", async () => {
+    const { manager } = makeManager();
+    await manager.session.ensureAuthenticated();
+    const firstStatus = manager.session.status;
+    await manager.session.ensureAuthenticated();
+    expect(firstStatus).toBe("authenticated");
+    expect(manager.session.status).toBe("authenticated");
   });
 
   it("stops with CRM_CHALLENGE when a captcha appears — never bypassed", async () => {
     const driver = new MockBrowserDriver();
     driver.showCaptcha(true);
-    const { manager: m } = manager(driver);
-    await expect(m.session.login()).rejects.toMatchObject({ code: "CRM_CHALLENGE" });
+    const { manager } = makeManager(driver);
+    await expect(manager.session.login()).rejects.toMatchObject({ code: "CRM_CHALLENGE" });
+  });
+
+  it("dismisses the announcement interstitial after login", async () => {
+    const driver = new MockBrowserDriver();
+    driver.showAnnouncement(true);
+    const { manager } = makeManager(driver);
+    await manager.session.login();
+    expect(manager.session.status).toBe("authenticated");
+    expect(await driver.isVisible("#announcement-modal")).toBe(false);
   });
 
   it("detects session expiry and reconnects during navigation", async () => {
-    const { driver, manager: m } = manager();
-    await m.session.login();
+    const { driver, manager } = makeManager();
+    await manager.session.login();
     driver.expireSession();
 
-    const page = await m.navigation.navigateTo("patient-search");
-    expect(m.session.status).toBe("authenticated"); // auto-reconnected
+    const page = await manager.navigation.navigateTo("patient-search");
+    expect(manager.session.status).toBe("authenticated"); // auto-reconnected
     expect(await page.isOpen()).toBe(true);
   });
 
-  it("logout disconnects the session", async () => {
-    const { manager: m } = manager();
-    await m.session.login();
-    await m.session.logout();
-    expect(m.session.status).toBe("disconnected");
-    await expect(m.navigation.navigateTo("invoice")).rejects.toMatchObject({
+  it("logout disconnects the session through the CRM's own control", async () => {
+    const { driver, manager } = makeManager();
+    await manager.session.login();
+    await manager.session.logout();
+    expect(manager.session.status).toBe("disconnected");
+    expect(driver.state.authenticated).toBe(false);
+    await expect(manager.navigation.navigateTo("invoice")).rejects.toMatchObject({
       code: "CRM_SESSION",
     });
   });
@@ -108,45 +133,45 @@ describe("session lifecycle", () => {
 
 describe("navigation", () => {
   it("navigates with retry through transient network failures", async () => {
-    const { driver, manager: m } = manager();
-    await m.session.login();
+    const { driver, manager } = makeManager();
+    await manager.session.login();
     driver.failNextNavigations(2); // fewer than maxAttempts
-    const page = await m.navigation.navigateTo("invoice");
+    const page = await manager.navigation.navigateTo("invoice");
     expect(page.pageId).toBe("invoice");
-    expect(m.navigation.history).toContain("invoice");
+    expect(manager.navigation.history).toContain("invoice");
   });
 
   it("exhausted network retries surface CRM_UNAVAILABLE", async () => {
-    const { driver, manager: m } = manager();
-    await m.session.login();
+    const { driver, manager } = makeManager();
+    await manager.session.login();
     driver.failNextNavigations(10);
-    await expect(m.navigation.navigateTo("invoice")).rejects.toMatchObject({
+    await expect(manager.navigation.navigateTo("invoice")).rejects.toMatchObject({
       code: "CRM_UNAVAILABLE",
     });
   });
 
   it("layout drift is CRM_LAYOUT naming the missing selector — no retry loops", async () => {
-    const { driver, manager: m } = manager();
-    await m.session.login();
+    const { driver, manager } = makeManager();
+    await manager.session.login();
     driver.breakLayout("/activity-logs");
-    await expect(m.navigation.navigateTo("activity-log")).rejects.toThrow(
+    await expect(manager.navigation.navigateTo("activity-log")).rejects.toThrow(
       /does not match crm-selectors\/v1/
     );
   });
 
-  it("page objects operate through registry selectors only", async () => {
-    const { manager: m } = manager();
-    await m.session.login();
-    const page = (await m.navigation.navigateTo("patient-search")) as PatientSearchPage;
-    const results = await page.searchByName("Santos");
-    expect(results).toBe(3);
+  it("resolves parameterized paths ({cid}) through pathParams", async () => {
+    const { driver, manager } = makeManager();
+    await manager.session.login();
+    const page = await manager.navigation.navigateTo("patient-profile", { cid: "1001" });
+    expect(page.pageId).toBe("patient-profile");
+    expect(await driver.currentUrl()).toBe("/clients/1001");
   });
 
   it("keeps a navigation history for diagnostics", async () => {
-    const { manager: m } = manager();
-    await m.session.login();
-    await m.navigation.navigateTo("patient-search");
-    await m.navigation.navigateTo("invoice");
-    expect(m.navigation.history).toEqual(["patient-search", "invoice"]);
+    const { manager } = makeManager();
+    await manager.session.login();
+    await manager.navigation.navigateTo("patient-search");
+    await manager.navigation.navigateTo("invoice");
+    expect(manager.navigation.history).toEqual(["patient-search", "invoice"]);
   });
 });

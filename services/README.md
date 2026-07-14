@@ -16,7 +16,7 @@ implementations are external, swappable, or not yet built:
 | Folder     | Interface         | Strategies / implementations                                               | Selected by                       |
 | ---------- | ----------------- | -------------------------------------------------------------------------- | --------------------------------- |
 | `ai/`      | `AIProvider`      | **mock (shipped, 3.0)**; claude, openai-vision, gemini, azure-openai (3.x) | `AI_PROVIDER` env / argument      |
-| `crm/`     | `CRMConnector`    | **mock (shipped, 3.4)** → browser-automation, api (later)                  | `CRM_CONNECTOR` env / argument    |
+| `crm/`     | `CRMConnector`    | **mock (3.4)**, **browser-automation/Playwright (M0041)**; api (later)     | `CRM_CONNECTOR` env / argument    |
 | `audit/`   | `AuditService`    | audit engine (M2)                                                          | `getAuditService()`               |
 | `storage/` | `StorageProvider` | **local (shipped)**; s3, azure-blob, gcs, r2, supabase                     | `STORAGE_PROVIDER` env / argument |
 

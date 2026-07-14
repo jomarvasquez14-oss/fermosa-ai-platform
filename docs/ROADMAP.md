@@ -25,6 +25,7 @@
 | **M3 / 3.7**     | Rule engine (deterministic, findings out)           | ✅ **Complete** (2026-07-14) |
 | **M3 / 3.9**     | Browser automation framework (mock driver only)     | ✅ **Complete** (2026-07-14) |
 | **v0.6.1 / 4.0** | Engineering excellence (CI, telemetry, DX, reviews) | ✅ **Complete** (2026-07-14) |
+| **M0041 / 4.1**  | CRM browser connector (Playwright; live-gated)      | ✅ **Complete** (2026-07-14) |
 | **M2**           | Audit module core                                   | Next                         |
 | **M3**           | AI-assisted auditing                                | Planned                      |
 | **M4**           | Reports & administration                            | Planned                      |
@@ -219,6 +220,20 @@ instrumented), `pnpm verify`/`release-check` + [DEVELOPER_GUIDE.md](DEVELOPER_GU
 and three formal reviews: [PERFORMANCE.md](PERFORMANCE.md),
 [SECURITY.md](SECURITY.md) (one missing page guard found and fixed), and the
 architecture validation report (M0040 §4.0F). Suite: 160 tests.
+
+**M0041 — CRM browser connector ✅** (2026-07-14, ADR-033, see
+[MILESTONES/M0041.md](MILESTONES/M0041.md)): the first REAL `CRMConnector` —
+Playwright Chromium behind the Sprint 3.9 `BrowserDriver` seam (Playwright confined to
+`services/browser/drivers/playwright/`), selector map v1 rebuilt from the reference
+captures with per-table header fingerprints and `neverInteract` lists, seven page
+objects (patients, profile, treatment/invoice tabs, activity log), session manager
+(one login per execution, idle re-verification, reconnect), and
+`PlaywrightCRMConnector` under the unchanged `browser-automation` kind
+(`CRM_CONNECTOR=playwright` alias; credentials via `CRM_URL`/`CRM_USERNAME`/
+`CRM_PASSWORD`). Records are Zod-validated at the boundary; parsing failures are
+`CRM_LAYOUT`, never silent. Suite: 211 tests + a real-Chromium smoke test. **Live
+verification is gated on the read-only service account** (login capture + invoice-
+detail trigger are the remaining selector gaps).
 
 Goal: reduce manual review effort on uploaded logbooks.
 

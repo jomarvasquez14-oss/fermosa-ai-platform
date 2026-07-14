@@ -81,7 +81,9 @@ its own service later without untangling the codebase. See [DECISIONS.md](DECISI
 │   ├── audit/               # AuditService seam → orchestrator (ADR-029, §11)
 │   ├── orchestrator/        # Audit workflow engine: jobs, stages, state machine (3.6)
 │   ├── rules/               # Deterministic rule engine → findings (3.7, ADR-030)
-│   ├── browser/             # Browser automation framework, mock driver (3.9, ADR-031)
+│   ├── browser/             # Browser automation: driver seam, Playwright + mock drivers,
+│   │                        #   versioned selectors, page objects, session/navigation
+│   │                        #   (3.9 ADR-031; real driver M0041 ADR-033)
 │   └── storage/             # StorageProvider seam + local backend (2A.2, ADR-024)
 ├── hooks/ types/ utils/     # Shared hooks, global types, pure helpers
 ├── prisma/                  # schema.prisma, migrations, seed.ts
@@ -216,15 +218,15 @@ _(Introduced in Milestone 1.1 — see ADR-015…017.)_
 
 Capabilities that are external, swappable, or not yet built are consumed through
 **interfaces + factories** under `services/`; the application never depends on a concrete
-implementation. All three seams are interface-only today — factories throw
-`NotImplementedError` until their milestone lands.
+implementation. Factories throw `NotImplementedError` for strategies whose milestone
+has not landed yet.
 
-| Seam    | Interface                                                                                                                                              | Factory                | Strategies                                                                  | Selection                                   |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- | --------------------------------------------------------------------------- | ------------------------------------------- |
-| AI      | `AIProvider` — `extractLogbook`, `analyzeImage`, `generateSummary`; OCR design in [OCR_ARCHITECTURE.md](OCR_ARCHITECTURE.md) (ADR-026)                 | `getAIProvider()`      | **mock (shipped, 3.0)** → claude, openai-vision, gemini, azure-openai (3.x) | `AI_PROVIDER` env or explicit argument      |
-| CRM     | `CRMConnector` — `healthCheck`, `findPatients`, `fetchPatientRecord`; discovery design in [CRM_DISCOVERY.md](CRM_DISCOVERY.md) (ADR-027)               | `getCRMConnector()`    | **mock (shipped, 3.4)** → browser-automation (Sprint 3), api (future)       | `CRM_CONNECTOR` env or explicit argument    |
-| Audit   | `AuditService` — submission lifecycle + step pipeline (`AUDIT_STEPS`), first-class retry; domain model in [DOMAIN_MODEL.md](DOMAIN_MODEL.md) (ADR-023) | `getAuditService()`    | audit engine (M2)                                                           | —                                           |
-| Storage | `StorageProvider` — `put`, `get`, `exists`, `delete` over opaque keys (ADR-024)                                                                        | `getStorageProvider()` | **local (shipped, 2A.2)**; s3, azure-blob, gcs, r2, supabase (future)       | `STORAGE_PROVIDER` env or explicit argument |
+| Seam    | Interface                                                                                                                                              | Factory                | Strategies                                                                        | Selection                                                      |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| AI      | `AIProvider` — `extractLogbook`, `analyzeImage`, `generateSummary`; OCR design in [OCR_ARCHITECTURE.md](OCR_ARCHITECTURE.md) (ADR-026)                 | `getAIProvider()`      | **mock (shipped, 3.0)** → claude, openai-vision, gemini, azure-openai (3.x)       | `AI_PROVIDER` env or explicit argument                         |
+| CRM     | `CRMConnector` — `healthCheck`, `findPatients`, `fetchPatientRecord`; discovery design in [CRM_DISCOVERY.md](CRM_DISCOVERY.md) (ADR-027)               | `getCRMConnector()`    | **mock (3.4)**, **browser-automation/Playwright (M0041, ADR-033)** → api (future) | `CRM_CONNECTOR` env (alias: `playwright`) or explicit argument |
+| Audit   | `AuditService` — submission lifecycle + step pipeline (`AUDIT_STEPS`), first-class retry; domain model in [DOMAIN_MODEL.md](DOMAIN_MODEL.md) (ADR-023) | `getAuditService()`    | audit engine (M2)                                                                 | —                                                              |
+| Storage | `StorageProvider` — `put`, `get`, `exists`, `delete` over opaque keys (ADR-024)                                                                        | `getStorageProvider()` | **local (shipped, 2A.2)**; s3, azure-blob, gcs, r2, supabase (future)             | `STORAGE_PROVIDER` env or explicit argument                    |
 
 Boundary rules (binding, see [PROJECT_RULES.md](PROJECT_RULES.md) and
 [services/README.md](../services/README.md)):

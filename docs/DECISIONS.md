@@ -732,3 +732,41 @@ machine-gated. A vendor adapter (OTel/Datadog/Axiom) later implements one interf
 and touches zero instrumented code. Costs: CI runs the DB suite (~1 min of container
 time per push), and AsyncLocalStorage confines telemetry to the Node runtime — an
 accepted, documented boundary.
+
+## ADR-033: Playwright CRM connector behind the frozen driver and connector seams
+
+**Status:** Accepted _(2026-07-14, M0041)_
+
+**Context:** Sprint 3.9 shipped the browser framework with a mock driver only; the
+matching pipeline still had no path to real CRM facts. The reference captures
+(docs/crm-reference/, local-only) provided real markup for every discovery page except
+login, making genuine selectors possible before any live contact. The CRMConnector
+contract (ADR-027) is frozen and the mock connector is load-bearing for every
+downstream consumer.
+
+**Decision:** (1) **Playwright Chromium** implements the Sprint 3.9 `BrowserDriver`
+seam — the interface grew (launch/select/waitFor/locator/table/tables/screenshot/
+download/evaluate/goBack/reload) but Playwright itself exists ONLY in
+`services/browser/drivers/playwright/` (lazy import, `serverExternalPackages`). In-page
+extraction code travels as source strings, never compiled functions — transpiler
+helpers (`__name`) do not exist inside the page. (2) **Selector map v1 became real**:
+selectors derived from the captures, per-page fingerprints plus per-table column-header
+checks; unconfirmed surfaces (invoice detail trigger) sit behind explicit **capability
+flags** instead of guessed selectors, and each page documents a `neverInteract` list
+enforcing the read-only contract at the map level. (3) **`PlaywrightCRMConnector`**
+(`services/crm/connectors/playwright/`) implements the unchanged contract under the
+existing `browser-automation` kind; `CRM_CONNECTOR=playwright` is an env alias only.
+Credentials come exclusively from `CRM_URL`/`CRM_USERNAME`/`CRM_PASSWORD`, validated at
+first use. Search maps to what the CRM actually offers (name/mobile server-side, cid by
+direct navigation, email refined client-side); a dob-only query is honestly
+`not-found` — the mock's dob filter has no live counterpart. (4) Every record is
+Zod-validated at the boundary; unparseable money/dates fail as `CRM_LAYOUT`, never as
+silently wrong data.
+
+**Consequences:** Matching (Sprint 4) can develop against the mock and flip to live by
+changing one env var once the service account exists. Costs and gates: the login page
+remains uncaptured (provisional selectors fail loudly on first live run — the capture
+is still the gating input), invoice payments stay `null` until the detail trigger is
+confirmed (capability off), and the Playwright driver itself is verified by a
+local-page smoke test rather than unit tests — live verification is an explicit
+follow-up blocked on credentials.

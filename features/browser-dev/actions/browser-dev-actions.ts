@@ -1,19 +1,24 @@
 "use server";
 
+import { getServerEnv } from "@/lib/config/env";
 import { requirePermission } from "@/lib/auth/session";
 import { isAppError } from "@/lib/errors";
 import {
   BrowserManager,
   MockBrowserDriver,
   SELECTOR_MAP_V1,
+  type NavigablePageId,
   type PageId,
 } from "@/services/browser";
+import { getCRMConnector } from "@/services/crm";
 
 /**
- * /dev/browser actions (Sprint 3.9) — Super Admin tooling that drives the
- * browser framework against the MOCK driver. One dev session per server
- * process; nothing here can reach the live CRM (the mock driver is the only
- * driver that exists).
+ * /dev/browser actions — Super Admin tooling that drives the browser
+ * framework against the MOCK driver (one dev session per server process; the
+ * scriptable failure modes below only exist on the mock). The "CRM connector
+ * health" command goes through `getCRMConnector()` instead, so with
+ * `CRM_CONNECTOR=playwright` it exercises the real PlaywrightCRMConnector
+ * (ADR-033) while everything else stays on the simulation.
  */
 
 const driver = new MockBrowserDriver();
@@ -26,6 +31,8 @@ const manager = new BrowserManager(
 
 export interface BrowserDevState {
   session: string;
+  /** Which connector strategy `getCRMConnector()` resolves right now. */
+  connector: { configured: string; kind: string };
   driver: {
     url: string;
     authenticated: boolean;
@@ -59,8 +66,13 @@ async function run(label: string, operation: () => Promise<string>): Promise<voi
 
 export async function getBrowserDevStateAction(): Promise<BrowserDevState> {
   await requirePermission("playground:access");
+  const configured = getServerEnv().CRM_CONNECTOR;
   return {
     session: manager.session.status,
+    connector: {
+      configured,
+      kind: configured === "playwright" ? "browser-automation" : configured,
+    },
     driver: driver.state,
     history: [...manager.navigation.history] as PageId[],
     registryVersion: manager.registry.version,
@@ -80,7 +92,8 @@ export async function browserDevCommandAction(
     | { kind: "login" }
     | { kind: "logout" }
     | { kind: "health" }
-    | { kind: "navigate"; page: PageId }
+    | { kind: "crm-health" }
+    | { kind: "navigate"; page: NavigablePageId }
     | { kind: "expire-session" }
     | { kind: "network-failures"; count: number }
     | { kind: "captcha"; enabled: boolean }
@@ -106,6 +119,13 @@ export async function browserDevCommandAction(
       await run("health", async () => {
         const health = await manager.session.healthCheck();
         return `healthCheck → ok=${health.ok} (${health.detail})`;
+      });
+      break;
+    case "crm-health":
+      await run("crm-health", async () => {
+        const connector = getCRMConnector();
+        const health = await connector.healthCheck();
+        return `${connector.kind} connector → ok=${health.ok} (${health.detail ?? "no detail"})`;
       });
       break;
     case "navigate":

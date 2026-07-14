@@ -8,6 +8,14 @@ and Reporting.
 authorization, application shell (dashboard, sidebar, error pages), database schema, and
 logging architecture. No audit business logic yet.
 
+**Since then** (see [docs/ROADMAP.md](docs/ROADMAP.md)): audit submissions with OCR
+review, the findings engine and rule-based audit intelligence (v0.6.x), CI + telemetry,
+and the **CRM browser connector** (M0041) — Playwright Chromium behind the
+`CRMConnector` seam. Select it with `CRM_CONNECTOR=playwright` plus
+`CRM_URL`/`CRM_USERNAME`/`CRM_PASSWORD` (read-only service account; requires
+`pnpm exec playwright install chromium` once). The default remains the mock connector —
+no browser, no live CRM contact.
+
 ## Tech Stack
 
 | Concern        | Technology                          |

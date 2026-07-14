@@ -21,7 +21,18 @@ const serverEnvSchema = z.object({
 
   // Architecture seams (Milestone 1.1) — which implementation the factories
   // select once implementations exist. Defaults are the safest option.
-  CRM_CONNECTOR: z.enum(["browser-automation", "api", "mock"]).default("mock"),
+  // "playwright" is an accepted alias for "browser-automation" (ADR-033).
+  CRM_CONNECTOR: z.enum(["browser-automation", "playwright", "api", "mock"]).default("mock"),
+  /**
+   * Live CRM access (browser-automation connector only, ADR-033). All three
+   * are required the moment that connector is selected — validated at
+   * connector construction, not here, so mock-only setups need none.
+   */
+  CRM_URL: z.string().url().optional(),
+  CRM_USERNAME: z.string().min(1).optional(),
+  CRM_PASSWORD: z.string().min(1).optional(),
+  /** Headed Chromium is for supervised verification runs only. */
+  CRM_BROWSER_HEADLESS: z.enum(["true", "false"]).default("true"),
   // Implemented providers: mock (3.0), claude (3.1). Others land in 3.x.
   AI_PROVIDER: z
     .enum(["mock", "openai-vision", "claude", "gemini", "azure-openai"])

@@ -1,17 +1,20 @@
-import type { SelectorRegistry } from "./selector-registry";
-import { browserError, type BrowserDriver, type PageId } from "./types";
+import type { BrowserDriver } from "@/services/browser/driver/browser-driver";
+import type { SelectorRegistry } from "@/services/browser/selectors";
+import { LayoutChangedError, type PageId } from "@/services/browser/types";
 
 /**
- * PageObject base (Sprint 3.9). A page object owns BEHAVIOR only — selectors
- * come from the registry, the browser from the driver. Every page validates
- * its structural fingerprint before use so a CRM redesign fails loudly as
- * CRM_LAYOUT (naming the missing selector), never as silently wrong data.
+ * PageObject base (ADR-031). A page object owns BEHAVIOR only — selectors
+ * come from the registry, the browser from the driver, and nothing here may
+ * mutate CRM state (read-only contract, PROJECT_RULES #24). Every page
+ * validates its structural fingerprint before use so a CRM redesign fails
+ * loudly as CRM_LAYOUT (naming the missing selector), never as silently
+ * wrong data.
  */
 export abstract class BasePage {
   abstract readonly pageId: PageId;
 
   constructor(
-    protected readonly driver: BrowserDriver,
+    readonly driver: BrowserDriver,
     protected readonly registry: SelectorRegistry
   ) {}
 
@@ -27,8 +30,7 @@ export abstract class BasePage {
   async assertFingerprint(): Promise<void> {
     for (const selector of this.registry.fingerprint(this.pageId)) {
       if (!(await this.driver.isVisible(selector))) {
-        throw browserError(
-          "CRM_LAYOUT",
+        throw new LayoutChangedError(
           `Page "${this.pageId}" does not match ${this.registry.version}: expected "${selector}" is missing. The selector map likely needs a new version.`
         );
       }

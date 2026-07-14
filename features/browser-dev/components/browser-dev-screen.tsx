@@ -21,9 +21,9 @@ import {
   browserDevCommandAction,
   type BrowserDevState,
 } from "@/features/browser-dev/actions/browser-dev-actions";
-import type { PageId } from "@/services/browser";
+import type { NavigablePageId } from "@/services/browser";
 
-const PAGES: PageId[] = [
+const PAGES: NavigablePageId[] = [
   "dashboard",
   "patient-search",
   "patient-profile",
@@ -55,8 +55,9 @@ export function BrowserDevScreen({ initialState }: { initialState: BrowserDevSta
               Session
             </CardTitle>
             <CardDescription>
-              Mock CRM only — the framework&apos;s single driver implementation cannot reach the
-              live system.
+              Session, navigation, and failure drills run on the mock driver. The CRM connector
+              health probe uses whichever connector <code>CRM_CONNECTOR</code> selects (
+              {initialState.connector.kind}).
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
@@ -85,6 +86,15 @@ export function BrowserDevScreen({ initialState }: { initialState: BrowserDevSta
               onClick={() => command({ kind: "health" })}
             >
               Health check
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => command({ kind: "crm-health" })}
+            >
+              CRM connector health
             </Button>
           </CardContent>
         </Card>
@@ -215,7 +225,7 @@ export function BrowserDevScreen({ initialState }: { initialState: BrowserDevSta
                     .filter(Boolean)
                     .join(", ") || "healthy",
               },
-              { label: "Registry", value: state.registryVersion },
+              { label: "Connector", value: state.connector.kind },
             ] as const
           ).map((stat) => (
             <Card key={stat.label} className="py-3">
