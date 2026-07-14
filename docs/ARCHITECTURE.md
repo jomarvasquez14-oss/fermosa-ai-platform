@@ -85,7 +85,7 @@ its own service later without untangling the codebase. See [DECISIONS.md](DECISI
 │   ├── audit/               # AuditService seam → orchestrator (ADR-029, §11)
 │   ├── orchestrator/        # Audit workflow engine: jobs, stages, state machine (3.6)
 │   ├── rules/               # Deterministic rule engine → findings (3.7, ADR-030;
-│   │                        #   rules-extended.ts +10 rules M0047)
+│   │                        #   +10 rules M0047, +7 rules M0052 → 30 total)
 │   ├── browser/             # Browser automation: driver seam, Playwright + mock drivers,
 │   │                        #   versioned selectors, page objects, session/navigation
 │   │                        #   (3.9 ADR-031; real driver M0041 ADR-033; selectors

@@ -2,6 +2,7 @@ import { InvalidStateError } from "@/lib/errors";
 import type { FindingDraft } from "@/lib/findings";
 import { BUILT_IN_RULES } from "./rules";
 import { EXTENDED_RULES } from "./rules-extended";
+import { EXTENDED_RULES_2 } from "./rules-extended-2";
 import {
   DEFAULT_RULE_CONFIG,
   type EvaluationReport,
@@ -89,9 +90,11 @@ export function branchScore(submissionScores: number[]): number | null {
   );
 }
 
-/** Default engine: all built-in rules plus the extended (M0047) rules, default configuration. */
+/** Default engine: built-in + extended (M0047) + extended-2 (M0052) rules, default config. */
 export function createRuleEngine(config?: Partial<RuleEngineConfig>): RuleEngine {
   const registry = new RuleRegistry();
-  for (const rule of [...BUILT_IN_RULES, ...EXTENDED_RULES]) registry.register(rule);
+  for (const rule of [...BUILT_IN_RULES, ...EXTENDED_RULES, ...EXTENDED_RULES_2]) {
+    registry.register(rule);
+  }
   return new RuleEngine(registry, { ...DEFAULT_RULE_CONFIG, ...config });
 }
