@@ -1,6 +1,7 @@
 import { InvalidStateError } from "@/lib/errors";
 import type { FindingDraft } from "@/lib/findings";
 import { BUILT_IN_RULES } from "./rules";
+import { EXTENDED_RULES } from "./rules-extended";
 import {
   DEFAULT_RULE_CONFIG,
   type EvaluationReport,
@@ -88,9 +89,9 @@ export function branchScore(submissionScores: number[]): number | null {
   );
 }
 
-/** Default engine: all built-in rules, default configuration. */
+/** Default engine: all built-in rules plus the extended (M0047) rules, default configuration. */
 export function createRuleEngine(config?: Partial<RuleEngineConfig>): RuleEngine {
   const registry = new RuleRegistry();
-  for (const rule of BUILT_IN_RULES) registry.register(rule);
+  for (const rule of [...BUILT_IN_RULES, ...EXTENDED_RULES]) registry.register(rule);
   return new RuleEngine(registry, { ...DEFAULT_RULE_CONFIG, ...config });
 }

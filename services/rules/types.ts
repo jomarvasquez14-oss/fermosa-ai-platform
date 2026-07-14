@@ -78,6 +78,10 @@ export interface RuleEngineConfig {
   severityWeights: Record<"INFO" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL", number>;
   /** Per-rule overrides: disable or re-weight without code changes. */
   rules: Record<string, { enabled?: boolean; weight?: number }>;
+  /** Minimum "updated" activity events on one patient before repeated-edits fires. */
+  repeatedEditsThreshold: number;
+  /** Maximum activity events on one patient before suspicious-activity-frequency fires. */
+  activityFrequencyThreshold: number;
 }
 
 export const DEFAULT_RULE_CONFIG: RuleEngineConfig = {
@@ -85,6 +89,8 @@ export const DEFAULT_RULE_CONFIG: RuleEngineConfig = {
   nameSimilarityThreshold: 0.82,
   severityWeights: { INFO: 0, LOW: 1, MEDIUM: 3, HIGH: 7, CRITICAL: 15 },
   rules: {},
+  repeatedEditsThreshold: 3,
+  activityFrequencyThreshold: 10,
 };
 
 export interface EvaluationScores {
