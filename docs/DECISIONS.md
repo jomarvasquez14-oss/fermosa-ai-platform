@@ -830,6 +830,46 @@ history snapshots can be large (retrieval windows bound this; OCR integration sh
 default to windowed captures), and orchestrator wiring (`CRM_RETRIEVAL` stage →
 `createSnapshot`) is deliberately deferred to the pipeline-integration sprint.
 
+## ADR-037: Additive patient-enumeration on the CRM connector seam for dataset sweeps
+
+**Status:** Accepted _(2026-07-14, M0050)_
+
+**Context:** The dataset builder (M0045) supports sweep modes (branch / date-range /
+entire-clinic), but the `CRMConnector` seam (ADR-027) exposes only `findPatients`
+(a search that returns `not-found` for an empty query) and `fetchPatientRecord`.
+M0045 faked sweeps with `findPatients({})`, which the mock returns as `not-found`
+and which carries no branch/date fields — so sweeps were structural-only and a live
+`--branch` flag was a false provenance claim (fixed defensively: metadata.branch
+nulled + a loud manifest warning). To sweep the live clinic for real, the seam needs
+a way to LIST patients, distinct from searching for one.
+
+**Decision:** (1) Add an **optional** method to `CRMConnector`:
+`listPatients?(page: number, options?): Promise<PatientPage>` where
+`PatientPage = { patients: PatientSummary[]; page: number; hasNextPage: boolean }`.
+**Optional, not required** — this is a non-weakening additive extension: connectors
+that cannot or should not enumerate (a future read-scoped `api` connector, say) omit
+it, and callers must handle its absence by failing loudly, never silently. (2) It is
+a **deliberate listing, not a search**: no `ambiguous`/`not-found` outcome semantics,
+one bounded page per call (the caller drives pagination under its own page budget),
+READ-ONLY like everything else on the seam. (3) **Branch and date-range are DERIVED,
+not server-side filters.** The live CRM patient list cannot filter by branch or
+treatment date (CRM_DISCOVERY §1), so sweep modes enumerate patients, retrieve each
+record (windowed for date-range), and include a patient only when the record's own
+contents match — branch membership = "a treatment was performed at that branch";
+date membership = "has in-window treatments/invoices/activity". `metadata.branch` is
+therefore stamped **only when genuinely derived from the retrieved record**,
+superseding M0045's null-stamp stopgap. (4) The mock connector enumerates its
+fixtures (fixed page size) so every mode is exercised deterministically offline; the
+Playwright connector reads the patients-management table page by page, bounded by a
+`maxEnumerationPages` budget, never a full unbounded crawl in one call.
+
+**Consequences:** Sweeps become real and reproducible while the seam stays read-only
+and no existing contract weakens. The cost is honest and documented: because branch/
+date are derived, an "entire branch" sweep must enumerate and retrieve the whole
+clinic to filter — expensive for large clinics, where an explicit patient-id list is
+preferred; the builder's progress + ETA reporting and resumability make the full
+sweep tolerable and restartable. `NormalizedCrmPatientRecord` (ADR-027) is untouched.
+
 ## ADR-036: Capture-replay verification and read-only interstitial neutralization
 
 **Status:** Accepted _(2026-07-14, M0042A)_

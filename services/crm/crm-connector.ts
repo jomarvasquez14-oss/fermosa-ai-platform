@@ -5,6 +5,7 @@ import type {
   FindPatientsQuery,
   FindPatientsResult,
   NormalizedCrmPatientRecord,
+  PatientPage,
   RetrievalWindow,
 } from "@/services/crm/types";
 
@@ -46,4 +47,13 @@ export interface CRMConnector {
     window?: RetrievalWindow,
     options?: CRMRequestOptions
   ): Promise<NormalizedCrmPatientRecord>;
+
+  /**
+   * OPTIONAL read-only patient enumeration for dataset sweeps (ADR-037), one
+   * bounded page at a time. Distinct from `findPatients` (a search): this is
+   * a deliberate listing with no ambiguity semantics. Connectors that cannot
+   * or must not enumerate omit it — callers MUST handle its absence by
+   * failing loudly, never silently sweeping nothing.
+   */
+  listPatients?(page: number, options?: CRMRequestOptions): Promise<PatientPage>;
 }

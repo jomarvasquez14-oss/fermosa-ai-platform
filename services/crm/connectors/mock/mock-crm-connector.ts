@@ -6,6 +6,7 @@ import {
   type FindPatientsQuery,
   type FindPatientsResult,
   type NormalizedCrmPatientRecord,
+  type PatientPage,
   type PatientSummary,
   type RetrievalWindow,
 } from "@/services/crm/types";
@@ -95,6 +96,24 @@ export class MockCRMConnector implements CRMConnector {
     // Never auto-pick between candidates (CRM_DISCOVERY §6).
     return { outcome: "ambiguous", candidates: matches.map(toSummary) };
   }
+
+  /**
+   * Enumerates the fixture set a fixed page at a time (ADR-037), so dataset
+   * sweep modes run deterministically offline. Ordered by fixture order for
+   * stable, resumable pagination.
+   */
+  async listPatients(page: number): Promise<PatientPage> {
+    const pageSize = MockCRMConnector.ENUMERATION_PAGE_SIZE;
+    const start = (page - 1) * pageSize;
+    const slice = FIXTURE_RECORDS.slice(start, start + pageSize);
+    return {
+      patients: slice.map(toSummary),
+      page,
+      hasNextPage: start + pageSize < FIXTURE_RECORDS.length,
+    };
+  }
+
+  static readonly ENUMERATION_PAGE_SIZE = 3;
 
   async fetchPatientRecord(
     crmId: string,

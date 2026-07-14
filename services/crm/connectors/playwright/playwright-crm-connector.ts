@@ -23,6 +23,7 @@ import {
   type FindPatientsQuery,
   type FindPatientsResult,
   type NormalizedCrmPatientRecord,
+  type PatientPage,
   type RetrievalWindow,
 } from "@/services/crm/types";
 import { buildNormalizedRecord, toPatientSummary } from "./normalizer";
@@ -55,10 +56,13 @@ export interface PlaywrightConnectorDeps {
   maxSearchPages?: number;
   /** Activity-log pages read per retrieval — never a full scan. */
   maxActivityPages?: number;
+  /** Upper bound on enumeration page depth reachable in one sweep (ADR-037). */
+  maxEnumerationPages?: number;
 }
 
 const DEFAULT_MAX_SEARCH_PAGES = 3;
 const DEFAULT_MAX_ACTIVITY_PAGES = 5;
+const DEFAULT_MAX_ENUMERATION_PAGES = 200;
 
 export class PlaywrightCRMConnector implements CRMConnector {
   readonly kind = "browser-automation" as const;
@@ -66,10 +70,12 @@ export class PlaywrightCRMConnector implements CRMConnector {
   private manager: BrowserManager | null = null;
   private readonly maxSearchPages: number;
   private readonly maxActivityPages: number;
+  private readonly maxEnumerationPages: number;
 
   constructor(private readonly deps: PlaywrightConnectorDeps = {}) {
     this.maxSearchPages = deps.maxSearchPages ?? DEFAULT_MAX_SEARCH_PAGES;
     this.maxActivityPages = deps.maxActivityPages ?? DEFAULT_MAX_ACTIVITY_PAGES;
+    this.maxEnumerationPages = deps.maxEnumerationPages ?? DEFAULT_MAX_ENUMERATION_PAGES;
   }
 
   async healthCheck(): Promise<CRMHealth> {
@@ -126,6 +132,39 @@ export class PlaywrightCRMConnector implements CRMConnector {
     }
     // Never auto-pick between candidates (CRM_DISCOVERY §6).
     return { outcome: "ambiguous", candidates: refined.map(toPatientSummary) };
+  }
+
+  /**
+   * Read-only enumeration of the unfiltered /clients list, one page at a time
+   * (ADR-037). Stateless across calls: reaching page N re-navigates to the
+   * list and advances N-1 times (the CRM's DataTable pagination is a UI
+   * control, not a URL param we can trust), bounded by `maxEnumerationPages`.
+   * Live-only — the mock CONNECTOR enumerates fixtures directly; there is no
+   * multi-page /clients capture to replay.
+   */
+  async listPatients(page: number): Promise<PatientPage> {
+    if (page < 1) throw new Error("listPatients: page is 1-based (got " + page + ")");
+    if (page > this.maxEnumerationPages) {
+      throw new LayoutChangedError(
+        `listPatients: page ${page} exceeds the enumeration bound ${this.maxEnumerationPages} ` +
+          `— refuse to crawl unboundedly; narrow the sweep or raise maxEnumerationPages.`
+      );
+    }
+
+    const manager = this.getManager();
+    await manager.session.ensureAuthenticated();
+
+    const listPage = (await manager.navigation.navigateTo("patient-search")) as PatientsPage;
+    let rows = await listPage.readResults();
+    let hasNext = await listPage.hasNextPage();
+
+    for (let current = 1; current < page; current++) {
+      if (!hasNext) return { patients: [], page, hasNextPage: false };
+      rows = await listPage.nextPage();
+      hasNext = await listPage.hasNextPage();
+    }
+
+    return { patients: rows.map(toPatientSummary), page, hasNextPage: hasNext };
   }
 
   async fetchPatientRecord(

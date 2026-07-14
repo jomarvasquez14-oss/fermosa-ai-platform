@@ -7,5 +7,20 @@
  * engine's hashing (`@/services/crm/snapshot`); introduces no new
  * architecture and touches no existing contract.
  */
-export { generateDataset, metadataFor, splitRecord, type GenerateOptions } from "./dataset-generator";
-export type { DatasetManifest, DatasetMetadata } from "./manifest";
+export {
+  generateDataset,
+  metadataFor,
+  resolveDatasetRoot,
+  splitRecord,
+  verifyGeneratedDataset,
+  type GenerateOptions,
+  type ProgressEvent,
+} from "./dataset-generator";
+export { verifyDataset, type VerifyReport, type VerifyIssue } from "./dataset-writer";
+export type {
+  DatasetDuplicate,
+  DatasetFailure,
+  DatasetManifest,
+  DatasetMetadata,
+  DatasetSnapshot,
+} from "./manifest";

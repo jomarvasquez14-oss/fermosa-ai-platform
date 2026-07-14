@@ -52,6 +52,20 @@ export interface FindPatientsResult {
   candidates: PatientSummary[];
 }
 
+/**
+ * One page of a patient ENUMERATION (ADR-037) — a deliberate listing for
+ * dataset sweeps, distinct from `findPatients` (a search). No ambiguity
+ * semantics apply: this is "list everyone, a page at a time". The caller
+ * drives pagination under its own page budget; a connector never crawls the
+ * whole clinic in a single call.
+ */
+export interface PatientPage {
+  patients: PatientSummary[];
+  /** 1-based page index, echoed back for provenance. */
+  page: number;
+  hasNextPage: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Normalized record (CRM_DISCOVERY §3) — the ONLY shape consumers ever see
 // ---------------------------------------------------------------------------

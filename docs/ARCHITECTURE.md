@@ -79,7 +79,7 @@ its own service later without untangling the codebase. See [DECISIONS.md](DECISI
 │   │                        #   providers/mock (3.0); real providers in 3.x (§11)
 │   ├── crm/                 # CRMConnector strategy interface + factory (§11);
 │   │                        #   snapshot/ — immutable audit evidence engine (M0043, ADR-035);
-│   │                        #   dataset/ — read-only CRM→disk dataset generator (M0045)
+│   │                        #   dataset/ — read-only CRM→disk dataset builder (M0045; sweep modes + enumeration + verify, M0050)
 │   ├── report/              # Audit report generator: HTML/PDF/JSON from stored evidence (M0046)
 │   ├── audit/               # AuditService seam → orchestrator (ADR-029, §11)
 │   ├── orchestrator/        # Audit workflow engine: jobs, stages, state machine (3.6)
@@ -229,7 +229,7 @@ has not landed yet.
 | Seam    | Interface                                                                                                                                              | Factory                | Strategies                                                                        | Selection                                                      |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | AI      | `AIProvider` — `extractLogbook`, `analyzeImage`, `generateSummary`; OCR design in [OCR_ARCHITECTURE.md](OCR_ARCHITECTURE.md) (ADR-026)                 | `getAIProvider()`      | **mock (shipped, 3.0)** → claude, openai-vision, gemini, azure-openai (3.x)       | `AI_PROVIDER` env or explicit argument                         |
-| CRM     | `CRMConnector` — `healthCheck`, `findPatients`, `fetchPatientRecord`; discovery design in [CRM_DISCOVERY.md](CRM_DISCOVERY.md) (ADR-027)               | `getCRMConnector()`    | **mock (3.4)**, **browser-automation/Playwright (M0041, ADR-033)** → api (future) | `CRM_CONNECTOR` env (alias: `playwright`) or explicit argument |
+| CRM     | `CRMConnector` — `healthCheck`, `findPatients`, `fetchPatientRecord`, optional `listPatients` (enumeration, ADR-037); discovery design in [CRM_DISCOVERY.md](CRM_DISCOVERY.md) (ADR-027) | `getCRMConnector()`    | **mock (3.4)**, **browser-automation/Playwright (M0041, ADR-033)** → api (future) | `CRM_CONNECTOR` env (alias: `playwright`) or explicit argument |
 | Audit   | `AuditService` — submission lifecycle + step pipeline (`AUDIT_STEPS`), first-class retry; domain model in [DOMAIN_MODEL.md](DOMAIN_MODEL.md) (ADR-023) | `getAuditService()`    | audit engine (M2)                                                                 | —                                                              |
 | Storage | `StorageProvider` — `put`, `get`, `exists`, `delete` over opaque keys (ADR-024)                                                                        | `getStorageProvider()` | **local (shipped, 2A.2)**; s3, azure-blob, gcs, r2, supabase (future)             | `STORAGE_PROVIDER` env or explicit argument                    |
 
