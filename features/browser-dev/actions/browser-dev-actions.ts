@@ -10,15 +10,22 @@ import {
   type NavigablePageId,
   type PageId,
 } from "@/services/browser";
-import { getCRMConnector } from "@/services/crm";
+import {
+  getCRMConnector,
+  type FindPatientsQuery,
+  type FindPatientsResult,
+  type NormalizedCrmPatientRecord,
+} from "@/services/crm";
 
 /**
- * /dev/browser actions — Super Admin tooling that drives the browser
- * framework against the MOCK driver (one dev session per server process; the
- * scriptable failure modes below only exist on the mock). The "CRM connector
- * health" command goes through `getCRMConnector()` instead, so with
- * `CRM_CONNECTOR=playwright` it exercises the real PlaywrightCRMConnector
- * (ADR-033) while everything else stays on the simulation.
+ * /dev/browser actions — Super Admin tooling with two halves (M0042):
+ *
+ *  - Framework drills run against the MOCK driver (one dev session per server
+ *    process; the scriptable failure modes below only exist on the mock).
+ *  - The "CRM connector" commands (health, patient search, open patient) go
+ *    through `getCRMConnector()`, so with `CRM_CONNECTOR=playwright` they
+ *    exercise the real PlaywrightCRMConnector (ADR-033) against the live CRM —
+ *    this page is the supervised live-validation cockpit (ADR-034).
  */
 
 const driver = new MockBrowserDriver();
@@ -32,7 +39,14 @@ const manager = new BrowserManager(
 export interface BrowserDevState {
   session: string;
   /** Which connector strategy `getCRMConnector()` resolves right now. */
-  connector: { configured: string; kind: string };
+  connector: {
+    configured: string;
+    kind: string;
+    /** Presence of each live-CRM env var (never the values). */
+    credentials: { url: boolean; username: boolean; password: boolean };
+    /** True when the resolved connector can actually run (mock always can). */
+    ready: boolean;
+  };
   driver: {
     url: string;
     authenticated: boolean;
@@ -43,7 +57,16 @@ export interface BrowserDevState {
   };
   history: PageId[];
   registryVersion: string;
-  registry: Array<{ page: string; path: string; fingerprint: number; elements: string[] }>;
+  /** Capability flags gating selectors not yet confirmed (invoiceDetail…). */
+  capabilities: Record<string, boolean>;
+  registry: Array<{
+    page: string;
+    path: string;
+    fingerprint: number;
+    elements: string[];
+    /** Strongest evidence behind the page's selectors (M0042A). */
+    verification: string;
+  }>;
   lastResult: string | null;
   lastError: { code: string; message: string } | null;
 }
@@ -66,21 +89,32 @@ async function run(label: string, operation: () => Promise<string>): Promise<voi
 
 export async function getBrowserDevStateAction(): Promise<BrowserDevState> {
   await requirePermission("playground:access");
-  const configured = getServerEnv().CRM_CONNECTOR;
+  const env = getServerEnv();
+  const configured = env.CRM_CONNECTOR;
+  const credentials = {
+    url: Boolean(env.CRM_URL),
+    username: Boolean(env.CRM_USERNAME),
+    password: Boolean(env.CRM_PASSWORD),
+  };
+  const needsCredentials = configured === "playwright" || configured === "browser-automation";
   return {
     session: manager.session.status,
     connector: {
       configured,
       kind: configured === "playwright" ? "browser-automation" : configured,
+      credentials,
+      ready: !needsCredentials || (credentials.url && credentials.username && credentials.password),
     },
     driver: driver.state,
     history: [...manager.navigation.history] as PageId[],
     registryVersion: manager.registry.version,
+    capabilities: { ...SELECTOR_MAP_V1.capabilities },
     registry: Object.entries(SELECTOR_MAP_V1.pages).map(([page, config]) => ({
       page,
       path: config.path,
       fingerprint: config.fingerprint.length,
       elements: Object.keys(config.elements),
+      verification: config.verification,
     })),
     lastResult,
     lastError,
@@ -164,4 +198,39 @@ export async function browserDevCommandAction(
   }
 
   return getBrowserDevStateAction();
+}
+
+// ---------------------------------------------------------------------------
+// Connector cockpit (M0042 Phase 6) — search / open patient / normalized JSON
+// through whichever connector `getCRMConnector()` resolves. With
+// CRM_CONNECTOR=playwright these calls ARE the live-validation checklist.
+// ---------------------------------------------------------------------------
+
+export type ConnectorResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; code?: string };
+
+export async function connectorFindPatientsAction(
+  query: FindPatientsQuery
+): Promise<ConnectorResult<FindPatientsResult>> {
+  try {
+    await requirePermission("playground:access");
+    return { ok: true, data: await getCRMConnector().findPatients(query) };
+  } catch (error) {
+    if (isAppError(error)) return { ok: false, error: error.message, code: error.code };
+    return { ok: false, error: "Patient search failed unexpectedly. Check server logs." };
+  }
+}
+
+export async function connectorFetchRecordAction(
+  crmId: string,
+  window?: { from: string; to: string }
+): Promise<ConnectorResult<NormalizedCrmPatientRecord>> {
+  try {
+    await requirePermission("playground:access");
+    return { ok: true, data: await getCRMConnector().fetchPatientRecord(crmId, window) };
+  } catch (error) {
+    if (isAppError(error)) return { ok: false, error: error.message, code: error.code };
+    return { ok: false, error: "Record retrieval failed unexpectedly. Check server logs." };
+  }
 }

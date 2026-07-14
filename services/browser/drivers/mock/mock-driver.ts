@@ -6,6 +6,7 @@ import type {
   TableData,
   WaitForOptions,
 } from "@/services/browser/driver/browser-driver";
+import { NEUTRALIZE_ANNOUNCEMENTS_EXPRESSION } from "@/services/browser/pages/interstitials";
 import { SELECTOR_MAP_V1 } from "@/services/browser/selectors";
 import { browserError, LayoutChangedError } from "@/services/browser/types";
 
@@ -387,10 +388,6 @@ export class MockBrowserDriver implements BrowserDriver {
       this.url = "/login";
       return;
     }
-    if (selector === dashboard.announcementDismiss) {
-      this.announcement = false;
-      return;
-    }
     if (selector === V1["patient-search"].elements.resetLink) {
       this.formValues.delete(V1["patient-search"].elements.nameInput ?? "");
       this.formValues.delete(V1["patient-search"].elements.mobileInput ?? "");
@@ -451,8 +448,13 @@ export class MockBrowserDriver implements BrowserDriver {
 
     if (selector === V1.login.elements.captcha) return this.captcha;
     if (selector === V1.dashboard.elements.userChrome) return this.authenticated && !this.expired;
-    if (selector === V1.dashboard.elements.announcementModal) return this.announcement;
-    if (selector === V1.dashboard.elements.announcementDismiss) return this.announcement;
+    if (
+      selector === V1.dashboard.elements.announcementModals ||
+      selector === V1.dashboard.elements.instantAnnouncementModal ||
+      selector === V1.dashboard.elements.checklistAnnouncementModal
+    ) {
+      return this.announcement;
+    }
     // Single-page demo data: no next-page link exists.
     if (
       selector === V1["patient-search"].elements.paginationNext ||
@@ -505,6 +507,13 @@ export class MockBrowserDriver implements BrowserDriver {
   async evaluate<T>(script: string): Promise<T> {
     if (this.scriptedEvaluations.has(script)) {
       return this.scriptedEvaluations.get(script) as T;
+    }
+    // Announcement neutralization (M0042A): simulate the client-side node
+    // removal — the modal disappears without any mark-as-read "click".
+    if (script === NEUTRALIZE_ANNOUNCEMENTS_EXPRESSION) {
+      const removed = this.announcement ? 1 : 0;
+      this.announcement = false;
+      return removed as T;
     }
     throw new Error(`MockBrowserDriver.evaluate: no scripted result for "${script}".`);
   }

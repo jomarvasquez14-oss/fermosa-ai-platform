@@ -2,10 +2,11 @@ import { CaptchaDetectedError } from "@/services/browser/types";
 import { BasePage } from "./base-page";
 
 /**
- * LoginPage — the ONE page the captures never included (CRM_DISCOVERY §8).
- * Its v1 selectors are provisional; the fingerprint is deliberately minimal
- * (a password field) so a wrong guess fails as CRM_LAYOUT on the first live
- * run instead of submitting credentials into the void.
+ * LoginPage — selectors VERIFIED against the 2026-07-14 capture (M0042A):
+ * email + password fields in a Laravel POST form (hidden CSRF token travels
+ * with the submit automatically). No CAPTCHA exists on the captured page;
+ * the probe below stays as a tripwire in case one ever appears — automation
+ * stops, never bypasses (CRM_DISCOVERY §5).
  */
 export class LoginPage extends BasePage {
   readonly pageId = "login" as const;

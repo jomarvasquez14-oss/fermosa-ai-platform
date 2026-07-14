@@ -51,7 +51,10 @@ function tableExpression(selector: string, index: number): string {
   if (!table) return null;
   const clean = (s) => (s ?? "").replace(/\\s+/g, " ").trim();
   const readCell = (cell) => {
-    const control = cell.querySelector("input, select, textarea");
+    // Hidden inputs are bookkeeping (treatment_record_id shares the DATE
+    // cell — 2026-07-13 profile capture, M0042A); data lives in the first
+    // NON-hidden control.
+    const control = cell.querySelector("input:not([type=hidden]), select, textarea");
     let value = null;
     let selectedLabel = null;
     if (control && control.tagName === "SELECT") {

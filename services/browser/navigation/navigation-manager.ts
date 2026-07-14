@@ -1,6 +1,7 @@
 import { isAppError } from "@/lib/errors";
 import type { BasePage } from "@/services/browser/pages";
 import { PAGE_CLASSES } from "@/services/browser/pages";
+import { NEUTRALIZE_ANNOUNCEMENTS_EXPRESSION } from "@/services/browser/pages/interstitials";
 import {
   navigationTimeout,
   politenessDelay,
@@ -82,6 +83,13 @@ export class NavigationManager {
         }
       }
     });
+
+    // The announcement poller runs on EVERY authenticated page and re-shows
+    // its static-backdrop modal every 5s (M0042A, announcements.js) —
+    // neutralize after each load so subsequent clicks are never blocked.
+    if (pageId !== "login") {
+      await this.session.driver.evaluate(NEUTRALIZE_ANNOUNCEMENTS_EXPRESSION);
+    }
 
     this.session.markActivity();
     this.historyLog.push(pageId);

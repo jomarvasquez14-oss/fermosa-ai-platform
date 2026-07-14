@@ -26,6 +26,7 @@ export {
   type RawInvoiceRow,
 } from "./invoice-tab";
 export { ActivityLogPage, type ActivityFilter, type RawActivityEntry } from "./activity-log-page";
+export { NEUTRALIZE_ANNOUNCEMENTS_EXPRESSION } from "./interstitials";
 
 /**
  * The standalone "/invoice" list page. Discovery reads invoices through the

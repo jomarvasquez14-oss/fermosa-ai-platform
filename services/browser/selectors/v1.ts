@@ -1,28 +1,39 @@
 import type { PageId } from "@/services/browser/types";
 
 /**
- * Selector map v1 — derived from the authoritative CRM reference captures
- * (docs/crm-reference/, local-only; studied 2026-07-14). Every selector below
- * was observed in a real export except the LOGIN page, which was never
- * captured (CRM_DISCOVERY §8 gating risk): its selectors are conservative
- * provisional guesses and MUST be confirmed on the first live run.
+ * Selector map v1 â€” derived from the authoritative CRM reference captures
+ * (docs/crm-reference/, local-only; studied 2026-07-14, extended with the
+ * 2026-07-14 login/dashboard/patients re-captures â€” M0042A). Every selector
+ * below was observed in a real export, INCLUDING login (capture landed
+ * 2026-07-14; the M0041 provisional guesses were corrected in place â€” the
+ * form has `input[name=email]`, no username/text input). Still unverified:
+ * the invoice DETAIL view (no capture; capability below stays off).
  *
  * Versioning contract (ADR-031): the CRM has no versioned markup, so this map
  * is the version. A CRM redesign means a NEW map file (v2.ts), zero page-object
  * changes; every scraped record carries the active version in `sourceRef`.
+ * M0042A was a non-breaking PATCH of v1: corrected selectors, same structure.
  */
 
 export interface PageSelectors {
   /** The page's URL path in the CRM ("#fragment" marks a tab section). */
   path: string;
-  /** Selectors that MUST be visible before parsing — layout-drift detection. */
+  /** Selectors that MUST be visible before parsing â€” layout-drift detection. */
   fingerprint: readonly string[];
   /** Named element selectors used by the page object. */
   elements: Readonly<Record<string, string>>;
   /**
+   * Strongest evidence backing this page's selectors (M0042A):
+   * "capture-replay" = executed against a real DOM capture by the
+   * verify-captures harness; "capture" = derived from a capture but not
+   * replay-executed; "unverified" = photos/guesses only. "live" arrives
+   * with credentials.
+   */
+  verification: "capture-replay" | "capture" | "unverified";
+  /**
    * Mutating controls observed on this page that automation must NEVER
    * touch (read-only contract, PROJECT_RULES #24). Documentation and
-   * test material — page objects expose no operation that reaches these.
+   * test material â€” page objects expose no operation that reaches these.
    */
   neverInteract?: readonly string[];
 }
@@ -41,24 +52,38 @@ export const SELECTOR_MAP_V1: SelectorMap = {
      * The invoice DETAIL view (SERVICES + PAYMENTS tables, per the reference
      * photos) is reached by invoice.js, which the captures do not include.
      * Until the trigger is confirmed against the live CRM, connectors must
-     * not attempt detail retrieval — invoice payments stay null.
+     * not attempt detail retrieval â€” invoice payments stay null.
      */
     invoiceDetail: false,
   },
   pages: {
-    // -- NOT captured; provisional (login export is the §8 gating input) -----
+    // -- /login: VERIFIED against the 2026-07-14 capture (M0042A) ------------
+    // Laravel POST form with a hidden CSRF _token (the browser submits it
+    // automatically). The "username" is an EMAIL field; there is no text
+    // input. No CAPTCHA exists on the page (the seal badge is not one) â€”
+    // the captcha probe stays as a defensive tripwire.
     login: {
+      verification: "capture-replay",
       path: "/login",
-      fingerprint: ["input[type=password]"],
+      fingerprint: ["form input[name=email]", "input[type=password]"],
       elements: {
-        username: "input[name=username], input[name=email], form input[type=text]",
-        password: "input[type=password]",
-        submit: "button[type=submit], input[type=submit]",
+        username: "form input[name=email]",
+        password: "input[name=password]",
+        submit: "form button[type=submit]",
         captcha: "[class*=captcha], iframe[src*=captcha], .g-recaptcha",
       },
+      neverInteract: ["input[name=remember]", "a[href*='password/reset']"],
     },
 
+    // -- Dashboard: navbar/logout verified; modal reality corrected (M0042A).
+    // The CRM has TWO blocking announcement modals, polled on every
+    // authenticated page (announcements.js): #instant-announcement-modal
+    // (re-shown every 5s, static backdrop) and #announcement-checklist-modal.
+    // Their close buttons are attestations that POST mark-as-read â€” read-only
+    // automation NEUTRALIZES the nodes client-side instead (see
+    // pages/interstitials.ts) and never touches the controls below.
     dashboard: {
+      verification: "capture-replay",
       path: "/",
       fingerprint: [".site-navbar"],
       elements: {
@@ -67,13 +92,21 @@ export const SELECTOR_MAP_V1: SelectorMap = {
         patientsLink: "a[href$='/clients']",
         invoiceLink: "a[href$='/invoice']",
         activityLink: "a[href$='/activity-logs']",
-        announcementModal: "#announcement-modal",
-        announcementDismiss: "#announcement-modal [data-dismiss=modal]",
+        instantAnnouncementModal: "#instant-announcement-modal",
+        checklistAnnouncementModal: "#announcement-checklist-modal",
+        announcementModals: "#instant-announcement-modal, #announcement-checklist-modal",
       },
+      neverInteract: [
+        "#read-announcement",
+        "#read-announcement-btn",
+        "#mark-as-done-btn",
+        "#completed-by",
+      ],
     },
 
     // -- /clients: GET filter form + server-rendered dataTable ---------------
     "patient-search": {
+      verification: "capture-replay",
       path: "/clients",
       fingerprint: ["input[name=search]", "table[data-plugin=dataTable]"],
       elements: {
@@ -98,6 +131,7 @@ export const SELECTOR_MAP_V1: SelectorMap = {
 
     // -- /clients/{cid}: profile card + tab strip -----------------------------
     "patient-profile": {
+      verification: "capture-replay",
       path: "/clients/{cid}",
       fingerprint: ["a[data-toggle=tab][href='#treatment-records']", ".profile-job"],
       elements: {
@@ -126,6 +160,7 @@ export const SELECTOR_MAP_V1: SelectorMap = {
 
     // -- Treatment Records tab: accordion of package panels ------------------
     "treatment-tab": {
+      verification: "capture-replay",
       path: "/clients/{cid}#treatment-records",
       fingerprint: ["#treatment-records .session-accordion"],
       elements: {
@@ -138,6 +173,7 @@ export const SELECTOR_MAP_V1: SelectorMap = {
 
     // -- Invoice tab: AJAX DataTable (rows arrive after page load) -----------
     "invoice-tab": {
+      verification: "capture",
       path: "/clients/{cid}#invoice",
       fingerprint: ["#invoice #invoice-table"],
       elements: {
@@ -151,6 +187,7 @@ export const SELECTOR_MAP_V1: SelectorMap = {
 
     // -- /invoice: the standalone list (same DataTable) ----------------------
     invoice: {
+      verification: "capture",
       path: "/invoice",
       fingerprint: ["#invoice-table"],
       elements: {
@@ -164,6 +201,7 @@ export const SELECTOR_MAP_V1: SelectorMap = {
 
     // -- Invoice detail view (reference photos; trigger unconfirmed) ---------
     "invoice-detail": {
+      verification: "unverified",
       path: "/invoice/{ref}",
       fingerprint: [],
       elements: {
@@ -178,9 +216,13 @@ export const SELECTOR_MAP_V1: SelectorMap = {
     },
 
     // -- /activity-logs: GET filter form + server-rendered table -------------
+    // M0042A: the log_names/causers selects are select2-enhanced â€” the NATIVE
+    // select is permanently display:none on the live page, so it can never be
+    // a fingerprint (or a wait target). Plain inputs stand in for the form.
     "activity-log": {
+      verification: "capture-replay",
       path: "/activity-logs",
-      fingerprint: ["#activity-logs-table", "select[name='log_names[]']"],
+      fingerprint: ["#activity-logs-table", "input[name=from]"],
       elements: {
         table: "#activity-logs-table",
         rows: "#activity-logs-table > tbody > tr",

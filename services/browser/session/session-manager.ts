@@ -146,7 +146,9 @@ export class BrowserSessionManager {
     await loginPage.submitCredentials(this.credentials.username, this.credentials.password);
 
     const dashboard = new DashboardPage(this.driver, this.registry);
-    if (!(await dashboard.isAuthenticated())) {
+    // Wait for the post-submit redirect to render the dashboard — an instant
+    // check races the live server (M0042).
+    if (!(await dashboard.waitUntilAuthenticated(navigationTimeout(this.timeouts)))) {
       this.statusValue = "disconnected";
       throw new AuthenticationFailedError(
         "Login did not reach the dashboard — check the service account's credentials and permissions."

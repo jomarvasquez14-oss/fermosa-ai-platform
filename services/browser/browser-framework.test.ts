@@ -100,13 +100,31 @@ describe("session lifecycle", () => {
     await expect(manager.session.login()).rejects.toMatchObject({ code: "CRM_CHALLENGE" });
   });
 
-  it("dismisses the announcement interstitial after login", async () => {
+  it("neutralizes the announcement interstitial after login without marking it read", async () => {
     const driver = new MockBrowserDriver();
     driver.showAnnouncement(true);
     const { manager } = makeManager(driver);
     await manager.session.login();
     expect(manager.session.status).toBe("authenticated");
-    expect(await driver.isVisible("#announcement-modal")).toBe(false);
+    // Both blocking modals are gone (client-side removal, never the
+    // mark-as-read close button — that would be a write, M0042A/ADR-036).
+    expect(await driver.isVisible("#instant-announcement-modal, #announcement-checklist-modal")).toBe(
+      false
+    );
+  });
+
+  it("neutralizes announcement interstitials raised on later navigations", async () => {
+    const driver = new MockBrowserDriver();
+    const { manager } = makeManager(driver);
+    await manager.session.login();
+
+    // The 5s poller can raise the modal on ANY authenticated page…
+    driver.showAnnouncement(true);
+    await manager.navigation.navigateTo("patient-search");
+    // …and navigation neutralizes it so clicks are never backdrop-blocked.
+    expect(await driver.isVisible("#instant-announcement-modal, #announcement-checklist-modal")).toBe(
+      false
+    );
   });
 
   it("detects session expiry and reconnects during navigation", async () => {

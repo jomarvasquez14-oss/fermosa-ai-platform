@@ -10,6 +10,9 @@ import { LayoutChangedError, type PageId } from "@/services/browser/types";
  * loudly as CRM_LAYOUT (naming the missing selector), never as silently
  * wrong data.
  */
+
+/** How long a fingerprint element may take to become visible after load. */
+const FINGERPRINT_TIMEOUT_MS = 10_000;
 export abstract class BasePage {
   abstract readonly pageId: PageId;
 
@@ -26,10 +29,21 @@ export abstract class BasePage {
     return this.registry.selector(this.pageId, key);
   }
 
-  /** Structural fingerprint check — layout-drift detection. */
+  /**
+   * Structural fingerprint check — layout-drift detection. Fingerprint
+   * elements are WAITED for, not probed instantly (M0042A): the CRM ships
+   * server HTML with tables CSS-hidden until page JS initializes them
+   * (e.g. #activity-logs-table), so an instant isVisible would race that
+   * init and misreport healthy pages as drifted.
+   */
   async assertFingerprint(): Promise<void> {
     for (const selector of this.registry.fingerprint(this.pageId)) {
-      if (!(await this.driver.isVisible(selector))) {
+      try {
+        await this.driver.waitFor(selector, {
+          state: "visible",
+          timeoutMs: FINGERPRINT_TIMEOUT_MS,
+        });
+      } catch {
         throw new LayoutChangedError(
           `Page "${this.pageId}" does not match ${this.registry.version}: expected "${selector}" is missing. The selector map likely needs a new version.`
         );
