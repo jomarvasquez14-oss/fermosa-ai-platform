@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import type { DatasetManifest, DatasetMetadata } from "./manifest";
 
@@ -37,6 +37,29 @@ export function hasExistingMetadata(outDir: string, crmId: string): boolean {
   return existsSync(metadataPath(outDir, crmId));
 }
 
+/**
+ * Reads back a previously-written `metadata.json` for one crmId, if any.
+ * Used to backfill manifest provenance (`connectorKind`/`selectorVersion`)
+ * when a patient is skipped on a resumed run rather than freshly retrieved.
+ */
+export function readExistingMetadata(outDir: string, crmId: string): DatasetMetadata | null {
+  const filePath = metadataPath(outDir, crmId);
+  if (!existsSync(filePath)) return null;
+  return JSON.parse(readFileSync(filePath, "utf8")) as DatasetMetadata;
+}
+
+/**
+ * Guards against a `crmId` that would escape the dataset tree when joined
+ * into a path (path separators or `..` segments). Throws a plain `Error` —
+ * the per-patient catch in `dataset-generator.ts` (Fix 3) records it into
+ * `manifest.failures` rather than aborting the batch.
+ */
+function assertSafeCrmId(crmId: string): void {
+  if (crmId.includes("/") || crmId.includes("\\") || crmId.includes("..")) {
+    throw new Error(`writePatientFiles: unsafe crmId "${crmId}" (must not contain path separators or "..")`);
+  }
+}
+
 /** Writes the five per-patient files (pretty JSON, 2-space) for one crmId. */
 export function writePatientFiles(
   outDir: string,
@@ -44,6 +67,7 @@ export function writePatientFiles(
   sections: PatientSections,
   metadata: DatasetMetadata
 ): void {
+  assertSafeCrmId(crmId);
   const dir = patientDir(outDir, crmId);
   mkdirSync(dir, { recursive: true });
   writeJson(path.join(dir, "patient.json"), sections.patient);

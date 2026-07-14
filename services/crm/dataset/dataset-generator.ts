@@ -3,7 +3,7 @@ import { getCRMConnector } from "@/services/crm";
 import type { CRMConnector } from "@/services/crm/crm-connector";
 import { contentHash, selectorVersionOf } from "@/services/crm/snapshot";
 import type { NormalizedCrmPatientRecord } from "@/services/crm/types";
-import { hasExistingMetadata, writeManifest, writePatientFiles } from "./dataset-writer";
+import { hasExistingMetadata, readExistingMetadata, writeManifest, writePatientFiles } from "./dataset-writer";
 import type { DatasetManifest, DatasetMetadata } from "./manifest";
 
 /**
@@ -98,10 +98,12 @@ async function resolvePatientIds(opts: GenerateOptions, connector: CRMConnector)
  * retrieved and `resume` is set), writes the five per-patient files plus
  * `crm/manifest.json`, and returns that manifest.
  *
- * Never aborts on a single patient's failure — an `AppError` (e.g. the CRM's
- * own `NOT_FOUND`) is recorded in `manifest.failures` and the batch
- * continues; any non-`AppError` (a genuine bug) still throws, per "fail
- * loudly".
+ * Never aborts on a single patient's failure — any error, whether an
+ * `AppError` (e.g. the CRM's own `NOT_FOUND`) or a plain `Error` (e.g. a
+ * write-side fs failure), is recorded in `manifest.failures` with a best-effort
+ * `code` and the batch continues. This is still "fail loudly": every failure
+ * is recorded, nothing is swallowed — it just doesn't abort the rest of the
+ * batch.
  */
 export async function generateDataset(
   opts: GenerateOptions,
@@ -112,6 +114,7 @@ export async function generateDataset(
   const patients: string[] = [];
   const warnings: string[] = [];
   const failures: DatasetManifest["failures"] = [];
+  let connectorKind: string = connector.kind;
   let selectorVersion = "";
   let retrievalDurationMs = 0;
 
@@ -119,6 +122,17 @@ export async function generateDataset(
     if (opts.resume && hasExistingMetadata(opts.outDir, crmId)) {
       warnings.push(`skipped ${crmId}`);
       patients.push(crmId);
+      // A fully-resumed run never reaches the success branch below, so
+      // provenance would otherwise stay at its initial value (selectorVersion
+      // stuck at ""). Backfill from the already-written metadata.json — only
+      // if not already set — so the manifest still reflects reality.
+      if (!selectorVersion || !connectorKind) {
+        const existing = readExistingMetadata(opts.outDir, crmId);
+        if (existing) {
+          connectorKind = connectorKind || existing.connectorKind;
+          selectorVersion = selectorVersion || existing.selectorVersion;
+        }
+      }
       continue;
     }
 
@@ -128,11 +142,19 @@ export async function generateDataset(
       const sections = splitRecord(record);
       const metadata = metadataFor(record, opts.branch ?? null, opts.window ?? null);
       writePatientFiles(opts.outDir, crmId, sections, metadata);
+      connectorKind = metadata.connectorKind;
       selectorVersion = metadata.selectorVersion;
       patients.push(crmId);
     } catch (error) {
-      if (!isAppError(error)) throw error;
-      failures.push({ crmId, code: error.code, message: error.message });
+      // Any failure — an AppError (e.g. the CRM's own NOT_FOUND) or a plain
+      // Error (e.g. a write-side fs failure, or an unsafe crmId rejected by
+      // writePatientFiles) — is recorded per-patient; the batch still
+      // continues (see the doc comment above).
+      failures.push({
+        crmId,
+        code: isAppError(error) ? error.code : "ERROR",
+        message: error instanceof Error ? error.message : String(error),
+      });
     } finally {
       retrievalDurationMs += performance.now() - startedAt;
     }
@@ -140,7 +162,7 @@ export async function generateDataset(
 
   const manifest: DatasetManifest = {
     generatedAt: new Date().toISOString(),
-    connectorKind: connector.kind,
+    connectorKind,
     selectorVersion,
     patients,
     // One sweep call for non-"patient" modes (see resolvePatientIds); a

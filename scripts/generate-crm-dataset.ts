@@ -3,10 +3,14 @@
  * sweep of the `CRMConnector` seam into a reproducible on-disk dataset
  * ("Dataset B"). See `services/crm/dataset/`.
  *
- * Usage:
- *   pnpm tsx scripts/generate-crm-dataset.ts --mode patient --crm-id c-1001 --out datasets/dataset-b
- *   pnpm tsx scripts/generate-crm-dataset.ts --mode all --out datasets/dataset-b --resume
- *   pnpm tsx scripts/generate-crm-dataset.ts --mode dateRange --from 2026-01-01 --to 2026-06-30 --out datasets/dataset-b
+ * Usage (via the `dataset:crm` npm script — note the `--` that passes args
+ * through pnpm to the script; both `@/services/crm` and
+ * `@/services/crm/snapshot` import `server-only`, which needs the
+ * `react-server` export condition to resolve to its non-throwing stub under
+ * `tsx`, hence the script wrapper rather than bare `pnpm tsx ...`):
+ *   pnpm dataset:crm -- --mode patient --crm-id c-1001 --out datasets/dataset-b
+ *   pnpm dataset:crm -- --mode all --out datasets/dataset-b --resume
+ *   pnpm dataset:crm -- --mode dateRange --from 2026-01-01 --to 2026-06-30 --out datasets/dataset-b
  *
  * Flags: --mode <patient|branch|dateRange|all> --crm-id <id> --branch <name>
  *        --from <yyyy-mm-dd> --to <yyyy-mm-dd> --out <dir> --resume
@@ -24,8 +28,14 @@ export function parseArgs(argv: string[]): GenerateOptions {
   const values = new Map<string, string>();
   let resume = false;
 
-  for (let i = 0; i < argv.length; i++) {
-    const token = argv[i];
+  // `pnpm dataset:crm -- --mode ...` inserts a literal "--" separator ahead
+  // of the passthrough args on this pnpm/corepack setup (verified locally,
+  // since the script itself takes no args of its own) — strip it so it is
+  // never mistaken for a flag.
+  const tokens = argv.filter((token) => token !== "--");
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
     if (token === undefined) continue;
     if (token === "--resume") {
       resume = true;
@@ -35,7 +45,7 @@ export function parseArgs(argv: string[]): GenerateOptions {
       throw new Error(`Unexpected argument "${token}"`);
     }
     const key = token.slice(2);
-    const next = argv[i + 1];
+    const next = tokens[i + 1];
     if (next === undefined || next.startsWith("--")) {
       throw new Error(`Missing value for --${key}`);
     }

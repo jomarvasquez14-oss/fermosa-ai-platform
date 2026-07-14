@@ -7,6 +7,8 @@ import { MockCRMConnector } from "@/services/crm/connectors/mock/mock-crm-connec
 import type { CRMConnector } from "@/services/crm/crm-connector";
 import type { FindPatientsResult } from "@/services/crm/types";
 import { generateDataset, metadataFor, splitRecord } from "./dataset-generator";
+import { writePatientFiles } from "./dataset-writer";
+import type { DatasetMetadata } from "./manifest";
 
 const connector = new MockCRMConnector();
 
@@ -132,6 +134,137 @@ describe("generateDataset — failure isolation", () => {
       expect(manifest.patients).toEqual(["c-1001"]);
       expect(existsSync(path.join(outDir, "crm", "c-1001", "metadata.json"))).toBe(true);
       expect(existsSync(path.join(outDir, "crm", "c-9999"))).toBe(false);
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("generateDataset — resumed-run manifest provenance", () => {
+  it("preserves connectorKind/selectorVersion in the manifest on a fully-resumed run", async () => {
+    const outDir = makeOutDir();
+    try {
+      await generateDataset({ mode: "patient", crmId: "c-1001", outDir, resume: true }, connector);
+
+      const metadataFile = path.join(outDir, "crm", "c-1001", "metadata.json");
+      const storedMetadata = JSON.parse(readFileSync(metadataFile, "utf8"));
+
+      // Second run: every id is skipped via the resume path, so the loop's
+      // success branch (which used to be the only place connectorKind /
+      // selectorVersion were set) never runs.
+      const resumed = await generateDataset(
+        { mode: "patient", crmId: "c-1001", outDir, resume: true },
+        connector
+      );
+
+      expect(resumed.warnings).toEqual(["skipped c-1001"]);
+      expect(resumed.patients).toEqual(["c-1001"]);
+      expect(resumed.connectorKind).not.toBe("");
+      expect(resumed.selectorVersion).not.toBe("");
+      expect(resumed.connectorKind).toBe(storedMetadata.connectorKind);
+      expect(resumed.selectorVersion).toBe(storedMetadata.selectorVersion);
+
+      const manifestFile = JSON.parse(readFileSync(path.join(outDir, "crm", "manifest.json"), "utf8"));
+      expect(manifestFile.connectorKind).toBe(storedMetadata.connectorKind);
+      expect(manifestFile.selectorVersion).toBe(storedMetadata.selectorVersion);
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("generateDataset — non-AppError failure isolation", () => {
+  it("records a plain (non-AppError) per-patient failure without aborting the batch", async () => {
+    const outDir = makeOutDir();
+    try {
+      // A stub connector whose fetchPatientRecord throws a plain Error (not
+      // an AppError) for one id — simulating, e.g., a write-side fs failure
+      // or any other genuine-bug-shaped error. Fix 3 requires this to be
+      // recorded into manifest.failures rather than rethrown and aborting
+      // the rest of the batch.
+      const sweepConnector: CRMConnector = {
+        kind: connector.kind,
+        healthCheck: () => connector.healthCheck(),
+        findPatients: (): Promise<FindPatientsResult> =>
+          Promise.resolve({
+            outcome: "ambiguous",
+            candidates: [
+              {
+                crmId: "c-1001",
+                fullName: "Santos, Maria",
+                dateOfBirth: "1992-03-14",
+                mobileNo: null,
+                membershipType: "Regular",
+                lastVisit: "2026-07-10",
+              },
+              {
+                crmId: "c-broken",
+                fullName: "Broken, Patient",
+                dateOfBirth: null,
+                mobileNo: null,
+                membershipType: null,
+                lastVisit: null,
+              },
+            ],
+          }),
+        fetchPatientRecord: (crmId, window) => {
+          if (crmId === "c-broken") throw new Error("disk full");
+          return connector.fetchPatientRecord(crmId, window);
+        },
+      };
+
+      const manifest = await generateDataset({ mode: "all", outDir, resume: false }, sweepConnector);
+
+      expect(manifest.failures).toEqual([{ crmId: "c-broken", code: "ERROR", message: "disk full" }]);
+      expect(manifest.patients).toEqual(["c-1001"]);
+      expect(existsSync(path.join(outDir, "crm", "c-1001", "metadata.json"))).toBe(true);
+      expect(existsSync(path.join(outDir, "crm", "c-broken"))).toBe(false);
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("writePatientFiles — unsafe crmId", () => {
+  it("throws rather than writing outside the dataset tree for a crmId containing '..'", () => {
+    const outDir = makeOutDir();
+    const metadata: DatasetMetadata = {
+      crmPatientId: "../escape",
+      connectorKind: "mock",
+      selectorVersion: "fixtures/v1",
+      retrievedAt: new Date().toISOString(),
+      snapshotHash: "a".repeat(64),
+      crmVersion: "fixtures/v1",
+      branch: null,
+      window: null,
+    };
+
+    try {
+      expect(() =>
+        writePatientFiles(outDir, "../escape", { patient: {}, treatments: [], invoice: [], activityLog: [] }, metadata)
+      ).toThrow(/unsafe crmId/);
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
+  it("throws for a crmId containing a path separator", () => {
+    const outDir = makeOutDir();
+    const metadata: DatasetMetadata = {
+      crmPatientId: "c-1001/evil",
+      connectorKind: "mock",
+      selectorVersion: "fixtures/v1",
+      retrievedAt: new Date().toISOString(),
+      snapshotHash: "a".repeat(64),
+      crmVersion: "fixtures/v1",
+      branch: null,
+      window: null,
+    };
+
+    try {
+      expect(() =>
+        writePatientFiles(outDir, "c-1001/evil", { patient: {}, treatments: [], invoice: [], activityLog: [] }, metadata)
+      ).toThrow(/unsafe crmId/);
     } finally {
       rmSync(outDir, { recursive: true, force: true });
     }
