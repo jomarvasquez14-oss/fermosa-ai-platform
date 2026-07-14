@@ -78,10 +78,13 @@ its own service later without untangling the codebase. See [DECISIONS.md](DECISI
 │   ├── ai/                  # AIProvider seam: ocr-schema, prompts/ (versioned),
 │   │                        #   providers/mock (3.0); real providers in 3.x (§11)
 │   ├── crm/                 # CRMConnector strategy interface + factory (§11);
-│   │                        #   snapshot/ — immutable audit evidence engine (M0043, ADR-035)
+│   │                        #   snapshot/ — immutable audit evidence engine (M0043, ADR-035);
+│   │                        #   dataset/ — read-only CRM→disk dataset generator (M0045)
+│   ├── report/              # Audit report generator: HTML/PDF/JSON from stored evidence (M0046)
 │   ├── audit/               # AuditService seam → orchestrator (ADR-029, §11)
 │   ├── orchestrator/        # Audit workflow engine: jobs, stages, state machine (3.6)
-│   ├── rules/               # Deterministic rule engine → findings (3.7, ADR-030)
+│   ├── rules/               # Deterministic rule engine → findings (3.7, ADR-030;
+│   │                        #   rules-extended.ts +10 rules M0047)
 │   ├── browser/             # Browser automation: driver seam, Playwright + mock drivers,
 │   │                        #   versioned selectors, page objects, session/navigation
 │   │                        #   (3.9 ADR-031; real driver M0041 ADR-033; selectors

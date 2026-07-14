@@ -22,6 +22,15 @@ truth; the platform never mirrors it. Selectors are **capture-replay-verified**
 (M0042A): the real page objects execute against real CRM DOM captures in real
 Chromium, with each page's evidence grade shown in `/dev/browser`.
 
+**Pre-OCR completion (v0.8.0-pre-ocr, M0044–M0047):** the connector was **validated
+against the live CRM** (M0044 — read path confirmed in production; invoice-detail
+deferred pending a capture). Then three subsystems, all behind the existing seams: a
+read-only, resumable **CRM dataset generator** (M0045, `pnpm dataset:crm`), an **audit
+report generator** producing HTML/PDF-ready/JSON reports reproducibly from stored
+evidence (M0046, `/reports`), and **10 new deterministic rules** in the rule engine
+(M0047). The only remaining gate before a first fully automated audit is the OCR
+sample dataset, an Anthropic API key, and OCR prompt calibration.
+
 ## Tech Stack
 
 | Concern        | Technology                          |
