@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
+import type { TableCell } from "@/services/browser/driver/browser-driver";
 import {
   headerIndexMap,
+  isEmptyTableResult,
   normalizeText,
   parseMoney,
   parsePackageTitle,
@@ -77,5 +79,30 @@ describe("headerIndexMap", () => {
 describe("normalizeText", () => {
   it("collapses whitespace", () => {
     expect(normalizeText("  a \n  b\tc ")).toBe("a b c");
+  });
+});
+
+describe("isEmptyTableResult", () => {
+  const cell = (text: string): TableCell => ({
+    text,
+    value: null,
+    selectedLabel: null,
+    links: [],
+  });
+
+  it("recognizes every observed empty-state phrasing", () => {
+    expect(isEmptyTableResult([])).toBe(true);
+    expect(isEmptyTableResult([[cell("No data available in table")]])).toBe(true);
+    expect(isEmptyTableResult([[cell("No matching records found")]])).toBe(true);
+    // Observed live (M0049): the server-rendered patients list.
+    expect(isEmptyTableResult([[cell("No clients available")]])).toBe(true);
+  });
+
+  it("never mistakes data rows for the empty state", () => {
+    expect(isEmptyTableResult([[cell("Santos, Maria"), cell("MEMBER")]])).toBe(false);
+    // Single cell but not the word "No" — e.g. a name starting with those letters.
+    expect(isEmptyTableResult([[cell("Norberto")]])).toBe(false);
+    // Two single-cell rows are data, not an empty marker.
+    expect(isEmptyTableResult([[cell("No")], [cell("No")]])).toBe(false);
   });
 });

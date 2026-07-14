@@ -222,7 +222,13 @@ export const SELECTOR_MAP_V1: SelectorMap = {
     "activity-log": {
       verification: "capture-replay",
       path: "/activity-logs",
-      fingerprint: ["#activity-logs-table", "input[name=from]"],
+      // input[name=from] was removed from the fingerprint (M0049, live): the
+      // Filters panel is `.panel.is-collapse` — its inputs exist in the DOM
+      // but their VISIBILITY is decided by theme JS after load, so a
+      // visible-wait fingerprint on them is a coin flip (passed in the
+      // morning M0044 run, failed in the afternoon M0049 run). The table is
+      // the page's stable, always-visible anchor.
+      fingerprint: ["#activity-logs-table"],
       elements: {
         table: "#activity-logs-table",
         rows: "#activity-logs-table > tbody > tr",
@@ -231,6 +237,10 @@ export const SELECTOR_MAP_V1: SelectorMap = {
         fromInput: "input[name=from]",
         toInput: "input[name=to]",
         keywordInput: "input[name=search]",
+        // Client-side collapse toggle of the Filters panel (live capture
+        // 2026-07-14: `a[data-toggle=panel-collapse]` inside the filter
+        // <form>) — a pure UI toggle, no request leaves the browser.
+        filtersToggle: "form a[data-toggle='panel-collapse']",
         applyButton: ".panel-body .text-right button[type=submit]",
         paginationNext: "ul.pagination a[rel=next], ul.pagination a[aria-label*='Next']",
       },

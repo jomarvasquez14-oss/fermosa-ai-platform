@@ -117,9 +117,14 @@ export class BrowserSessionManager {
     }
   }
 
+  /**
+   * Authenticates first: an unauthenticated dashboard visit redirects to
+   * /login, whose DOM would misreport as layout drift (observed live, M0049).
+   * The probe's job is "can we reach AND log in to the CRM" — so it logs in.
+   */
   async healthCheck(): Promise<{ ok: boolean; detail: string }> {
     try {
-      await this.launch();
+      await this.ensureAuthenticated();
       const dashboard = new DashboardPage(this.driver, this.registry);
       await this.driver.goto(dashboard.path);
       await dashboard.assertFingerprint();

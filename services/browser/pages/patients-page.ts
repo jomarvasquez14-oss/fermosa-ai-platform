@@ -1,6 +1,6 @@
 import type { TableCell } from "@/services/browser/driver/browser-driver";
 import { LayoutChangedError } from "@/services/browser/types";
-import { headerIndexMap, normalizeText } from "@/services/browser/utils/parse";
+import { headerIndexMap, isEmptyTableResult, normalizeText } from "@/services/browser/utils/parse";
 import { BasePage } from "./base-page";
 
 /**
@@ -60,7 +60,7 @@ export class PatientsPage extends BasePage {
 
   async readResults(): Promise<PatientRow[]> {
     const table = await this.driver.table(this.sel("resultsTable"));
-    if (this.isEmptyResult(table.rows)) return [];
+    if (isEmptyTableResult(table.rows)) return [];
 
     const columns = headerIndexMap(table.headers, RESULT_COLUMNS, "Patients list");
     return table.rows.map((cells, rowIndex) => {
@@ -95,18 +95,6 @@ export class PatientsPage extends BasePage {
   async openPatient(crmId: string): Promise<void> {
     const profilePath = this.registry.page("patient-profile").path.replace("{cid}", crmId);
     await this.driver.goto(profilePath);
-  }
-
-  /** DataTables renders zero results as a single "No data..." cell. */
-  private isEmptyResult(rows: TableCell[][]): boolean {
-    if (rows.length === 0) return true;
-    const first = rows[0];
-    return (
-      rows.length === 1 &&
-      first !== undefined &&
-      first.length === 1 &&
-      /no (data|matching)/i.test(first[0]?.text ?? "")
-    );
   }
 
   private rowCrmId(cells: TableCell[]): string | null {

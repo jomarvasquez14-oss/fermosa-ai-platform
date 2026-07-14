@@ -56,6 +56,18 @@ describe("PatientsPage", () => {
     expect(await page.search({ name: "Nobody Real" })).toEqual([]);
   });
 
+  it('recognizes the live "No clients available" empty row (M0049)', async () => {
+    await driver.goto("/clients");
+    // The live CRM's server-rendered empty state — a phrasing the old
+    // /no (data|matching)/ guard missed, crashing the no-match search path.
+    driver.setTable(registry.selector("patient-search", "resultsTable"), {
+      headers: ["", "NAME", "EMAIL", "MOBILE", "TYPE", "LAST VISIT", "CREATED AT", "ACTIONS"],
+      rows: [[textCell("No clients available")]],
+    });
+    const page = new PatientsPage(driver, registry);
+    expect(await page.search({ name: "zz-nobody" })).toEqual([]);
+  });
+
   it("duplicate names return every candidate — never auto-picked here", async () => {
     await driver.goto("/clients");
     const page = new PatientsPage(driver, registry);
@@ -299,6 +311,29 @@ describe("ActivityLogPage", () => {
     const page = new ActivityLogPage(driver, registry);
     // Demo data has one page; the cap must simply not loop beyond hasNextPage.
     const entries = await page.readFiltered({ keyword: "Santos" }, 1);
+    expect(entries).toHaveLength(1);
+  });
+
+  it("a patient with no matching activity is [], not a phantom entry (M0049)", async () => {
+    await driver.goto("/activity-logs");
+    // Live empty state: one single-cell row — must never be parsed as an
+    // activity entry (its empty Date crashed the normalizer before M0049).
+    driver.setTable(registry.selector("activity-log", "table"), {
+      headers: ["", "Log Name", "Description", "Caused By", "Date", "", "", "Details", "Old Details"],
+      rows: [[textCell("No matching records found")]],
+    });
+    const page = new ActivityLogPage(driver, registry);
+    expect(await page.readFiltered({ keyword: "Santos" }, 5)).toEqual([]);
+  });
+
+  it("expands the collapsed Filters panel before filling (live behavior, M0049)", async () => {
+    await driver.goto("/activity-logs");
+    driver.collapseActivityFilters(true);
+    const page = new ActivityLogPage(driver, registry);
+    // Without the client-side expand click, fill() times out on the hidden
+    // inputs — exactly what the live /activity-logs page does when its theme
+    // JS collapses the panel before the filter is touched.
+    const entries = await page.readFiltered({ keyword: "Santos, Maria" }, 5);
     expect(entries).toHaveLength(1);
   });
 });

@@ -22,7 +22,8 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "dataset:crm": "tsx --conditions=react-server scripts/generate-crm-dataset.ts"
+    "dataset:crm": "tsx --conditions=react-server scripts/generate-crm-dataset.ts",
+    "validate:crm": "tsx --conditions=react-server scripts/live-validation.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

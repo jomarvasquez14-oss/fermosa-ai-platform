@@ -1,4 +1,4 @@
-import { headerIndexMap, normalizeText } from "@/services/browser/utils/parse";
+import { headerIndexMap, isEmptyTableResult, normalizeText } from "@/services/browser/utils/parse";
 import { BasePage } from "./base-page";
 
 /**
@@ -37,6 +37,13 @@ export class ActivityLogPage extends BasePage {
 
   async applyFilter(filter: ActivityFilter): Promise<void> {
     await this.assertFingerprint();
+    // The Filters panel is collapsible and its initial state is decided by
+    // theme JS after load (M0049, live) — expand it deterministically before
+    // touching its inputs. The toggle is client-side only: no request.
+    if (!(await this.driver.isVisible(this.sel("fromInput")))) {
+      await this.driver.click(this.sel("filtersToggle"));
+      await this.driver.waitFor(this.sel("fromInput"), { state: "visible" });
+    }
     await this.driver.fill(this.sel("fromInput"), filter.from ?? "");
     await this.driver.fill(this.sel("toInput"), filter.to ?? "");
     await this.driver.fill(this.sel("keywordInput"), filter.keyword ?? "");
@@ -46,7 +53,10 @@ export class ActivityLogPage extends BasePage {
 
   async readEntries(): Promise<RawActivityEntry[]> {
     const table = await this.driver.table(this.sel("table"));
-    if (table.rows.length === 0) return [];
+    // A patient with no matching activity renders the single-cell empty row —
+    // parsing it as an entry yields an empty Date and a loud (but wrong)
+    // failure downstream (observed live, M0049).
+    if (isEmptyTableResult(table.rows)) return [];
 
     const columns = headerIndexMap(table.headers, LOG_COLUMNS, "Activity log");
     const entries: RawActivityEntry[] = [];

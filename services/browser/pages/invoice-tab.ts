@@ -1,6 +1,6 @@
-import type { TableCell, TableData } from "@/services/browser/driver/browser-driver";
+import type { TableData } from "@/services/browser/driver/browser-driver";
 import { LayoutChangedError } from "@/services/browser/types";
-import { headerIndexMap, normalizeText } from "@/services/browser/utils/parse";
+import { headerIndexMap, isEmptyTableResult, normalizeText } from "@/services/browser/utils/parse";
 import { BasePage } from "./base-page";
 
 /**
@@ -68,7 +68,7 @@ export class InvoiceTab extends BasePage {
     await this.waitForData();
 
     const table = await this.driver.table(this.sel("table"));
-    if (this.isEmptyResult(table.rows)) return [];
+    if (isEmptyTableResult(table.rows)) return [];
 
     const columns = headerIndexMap(table.headers, LIST_COLUMNS, "Invoice list");
     return table.rows.map((cells, rowIndex) => {
@@ -146,17 +146,6 @@ export class InvoiceTab extends BasePage {
       (header) => normalizeText(header).toUpperCase() === name.toUpperCase()
     );
     return index === -1 ? null : index;
-  }
-
-  private isEmptyResult(rows: TableCell[][]): boolean {
-    if (rows.length === 0) return true;
-    const first = rows[0];
-    return (
-      rows.length === 1 &&
-      first !== undefined &&
-      first.length === 1 &&
-      /no (data|matching)/i.test(first[0]?.text ?? "")
-    );
   }
 
   private optional(text: string | null | undefined): string | null {

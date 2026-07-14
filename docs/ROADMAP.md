@@ -33,6 +33,7 @@
 | **M0045 / 4.5**  | CRM dataset generator (read-only, resumable)        | ✅ **Complete** (2026-07-14) |
 | **M0046 / 4.6**  | Audit report generator (HTML/PDF/JSON from evidence)| ✅ **Complete** (2026-07-14) |
 | **M0047 / 4.7**  | Rule engine expansion (10 new deterministic rules)  | ✅ **Complete** (2026-07-14) |
+| **M0049 / 6.1**  | Complete live CRM validation (full checklist)       | ✅ **Complete** (2026-07-14; 4 live-only defects fixed; invoice-detail still gated) |
 | **M2**           | Audit module core                                   | Next                         |
 | **M3**           | AI-assisted auditing                                | Planned                      |
 | **M4**           | Reports & administration                            | Planned                      |

@@ -1,3 +1,4 @@
+import type { TableCell } from "@/services/browser/driver/browser-driver";
 import { LayoutChangedError } from "@/services/browser/types";
 
 /**
@@ -8,6 +9,26 @@ import { LayoutChangedError } from "@/services/browser/types";
 
 export function normalizeText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Empty-state detection for the CRM's result tables. DataTables and the
+ * CRM's server-rendered lists both render "no results" as a single
+ * full-width cell whose text varies by page — "No data available in table",
+ * "No matching records found", and (observed live, M0049) "No clients
+ * available". A single-cell row starting with the word "No" in a
+ * multi-column table can never be a data row, so that shape IS the signal;
+ * the exact phrasing is not load-bearing.
+ */
+export function isEmptyTableResult(rows: TableCell[][]): boolean {
+  if (rows.length === 0) return true;
+  const first = rows[0];
+  return (
+    rows.length === 1 &&
+    first !== undefined &&
+    first.length === 1 &&
+    /^no\b/i.test(normalizeText(first[0]?.text ?? ""))
+  );
 }
 
 /** "₱15,999.00" | "15,999.00" | "1500" → "15999.00" (money as decimal string). */

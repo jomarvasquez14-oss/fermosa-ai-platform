@@ -93,6 +93,16 @@ describe("session lifecycle", () => {
     expect(manager.session.status).toBe("authenticated");
   });
 
+  it("healthCheck on a fresh session authenticates first (M0049)", async () => {
+    // Live, an unauthenticated dashboard visit redirects to /login — without
+    // logging in first the probe misreported that as selector drift.
+    const { manager } = makeManager();
+    const health = await manager.session.healthCheck();
+    expect(health.ok).toBe(true);
+    expect(health.detail).toContain("authenticated");
+    expect(manager.session.status).toBe("authenticated");
+  });
+
   it("stops with CRM_CHALLENGE when a captcha appears — never bypassed", async () => {
     const driver = new MockBrowserDriver();
     driver.showCaptcha(true);

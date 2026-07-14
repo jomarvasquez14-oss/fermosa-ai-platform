@@ -248,6 +248,7 @@ export class MockBrowserDriver implements BrowserDriver {
   private expired = false;
   private captcha = false;
   private announcement = false;
+  private activityFiltersCollapsed = false;
   private failNavigations = 0;
   private brokenPaths = new Set<string>();
   private readonly formValues = new Map<string, string>();
@@ -273,6 +274,10 @@ export class MockBrowserDriver implements BrowserDriver {
   }
   showAnnouncement(enabled: boolean): void {
     this.announcement = enabled;
+  }
+  /** Simulate the live /activity-logs Filters panel arriving collapsed (M0049). */
+  collapseActivityFilters(enabled: boolean): void {
+    this.activityFiltersCollapsed = enabled;
   }
   breakLayout(path: string): void {
     this.brokenPaths.add(path);
@@ -306,6 +311,7 @@ export class MockBrowserDriver implements BrowserDriver {
     this.expired = false;
     this.captcha = false;
     this.announcement = false;
+    this.activityFiltersCollapsed = false;
     this.failNavigations = 0;
     this.brokenPaths.clear();
     this.formValues.clear();
@@ -361,6 +367,14 @@ export class MockBrowserDriver implements BrowserDriver {
 
   // ---- BrowserDriver: element actions ----
   async fill(selector: string, value: string): Promise<void> {
+    // Playwright parity: fill auto-waits for an actionable (visible) target
+    // and times out on hidden inputs — e.g. inside a collapsed panel (M0049).
+    if (!this.isScripted(selector) && !(await this.isVisible(selector))) {
+      throw browserError(
+        "CRM_TIMEOUT",
+        `fill(${selector}) target not visible on ${this.effectivePath()}.`
+      );
+    }
     this.formValues.set(selector, value);
   }
 
@@ -391,6 +405,11 @@ export class MockBrowserDriver implements BrowserDriver {
     if (selector === V1["patient-search"].elements.resetLink) {
       this.formValues.delete(V1["patient-search"].elements.nameInput ?? "");
       this.formValues.delete(V1["patient-search"].elements.mobileInput ?? "");
+    }
+    if (selector === V1["activity-log"].elements.filtersToggle) {
+      // Client-side panel-collapse toggle — flips visibility, nothing else.
+      this.activityFiltersCollapsed = !this.activityFiltersCollapsed;
+      return;
     }
     // Tab clicks, submits of GET filter forms, pagination: state is already
     // derived from formValues/url, so a click is a no-op here.
@@ -459,6 +478,18 @@ export class MockBrowserDriver implements BrowserDriver {
     if (
       selector === V1["patient-search"].elements.paginationNext ||
       selector === V1["activity-log"].elements.paginationNext
+    ) {
+      return false;
+    }
+    // Collapsed Filters panel: inputs exist but are not visible (M0049).
+    // Path-scoped because "input[name=search]" doubles as the patients page's
+    // name filter — the collapse must never leak onto other pages.
+    if (
+      this.activityFiltersCollapsed &&
+      path === V1["activity-log"].path &&
+      (selector === V1["activity-log"].elements.fromInput ||
+        selector === V1["activity-log"].elements.toInput ||
+        selector === V1["activity-log"].elements.keywordInput)
     ) {
       return false;
     }
