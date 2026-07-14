@@ -15,6 +15,7 @@
  * Flags: --mode <patient|branch|dateRange|all> --crm-id <id> --branch <name>
  *        --from <yyyy-mm-dd> --to <yyyy-mm-dd> --out <dir> --resume
  */
+import { getCRMConnector } from "@/services/crm";
 import { generateDataset, type GenerateOptions } from "@/services/crm/dataset";
 
 const MODES = ["patient", "branch", "dateRange", "all"] as const;
@@ -79,7 +80,18 @@ export function parseArgs(argv: string[]): GenerateOptions {
 
 async function main(): Promise<void> {
   const opts = parseArgs(process.argv.slice(2));
-  const manifest = await generateDataset(opts);
+
+  // Announce the connector before any retrieval — this tool reads whatever
+  // CRM_CONNECTOR selects, so `pnpm dataset:crm` hits the LIVE CRM whenever
+  // the connector is not the mock. Never let that be a silent surprise.
+  const connector = getCRMConnector();
+  const isLive = connector.kind !== "mock";
+  console.log(
+    `CRM connector: ${connector.kind}${isLive ? " — LIVE CRM (read-only)" : " (fixtures)"}. ` +
+      `Set CRM_CONNECTOR=mock for a dry run.`
+  );
+
+  const manifest = await generateDataset(opts, connector);
 
   console.log(
     `Dataset B generated at ${opts.outDir}: ${manifest.patients.length} patient(s), ` +
