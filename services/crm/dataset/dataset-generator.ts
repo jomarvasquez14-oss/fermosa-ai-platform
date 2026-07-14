@@ -49,6 +49,10 @@ export function splitRecord(record: NormalizedCrmPatientRecord): {
  * (the fixture/selector-map version already used as evidence-snapshot
  * provenance, see `services/crm/snapshot/evidence.ts`) is reused as a
  * documented proxy rather than inventing a second, ungrounded field.
+ *
+ * `branch` is a provenance claim: callers must pass a branch ONLY when it was
+ * genuinely applied as a retrieval filter, never the merely-requested value
+ * (M0047/Phase-5 whole-branch review, finding #2).
  */
 export function metadataFor(
   record: NormalizedCrmPatientRecord,
@@ -114,6 +118,18 @@ export async function generateDataset(
   const patients: string[] = [];
   const warnings: string[] = [];
   const failures: DatasetManifest["failures"] = [];
+
+  // No retrieval path can filter by branch — sweep modes issue
+  // `findPatients({})` (`FindPatientsQuery` has no branch field, see
+  // resolvePatientIds) and "patient" mode fetches one id directly — so a
+  // requested --branch is never applied. Say so loudly rather than silently
+  // ignoring the flag.
+  if (opts.branch) {
+    warnings.push(
+      `branch "${opts.branch}" requested but NOT applied — the CRMConnector seam ` +
+        `cannot filter by branch, so results are not branch-scoped and metadata.branch is null`
+    );
+  }
   let connectorKind: string = connector.kind;
   let selectorVersion = "";
   let retrievalDurationMs = 0;
@@ -140,7 +156,13 @@ export async function generateDataset(
     try {
       const record = await connector.fetchPatientRecord(crmId, opts.window);
       const sections = splitRecord(record);
-      const metadata = metadataFor(record, opts.branch ?? null, opts.window ?? null);
+      // branch is stamped null, NOT `opts.branch`: the ids came from an
+      // unfiltered sweep (or a direct id fetch), so stamping the requested
+      // branch would claim provenance the query never enforced — over a live
+      // full sweep it would tag every unrelated patient with that branch.
+      // `opts.window` IS genuinely applied (passed to fetchPatientRecord
+      // above), so stamping it stays truthful.
+      const metadata = metadataFor(record, null, opts.window ?? null);
       writePatientFiles(opts.outDir, crmId, sections, metadata);
       connectorKind = metadata.connectorKind;
       selectorVersion = metadata.selectorVersion;

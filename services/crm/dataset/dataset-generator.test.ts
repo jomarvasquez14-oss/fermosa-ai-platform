@@ -225,6 +225,58 @@ describe("generateDataset — non-AppError failure isolation", () => {
   });
 });
 
+describe("generateDataset — sweep modes must not stamp an unapplied branch", () => {
+  it('stamps metadata.branch null on a "branch"-mode sweep and records a manifest warning', async () => {
+    const outDir = makeOutDir();
+    try {
+      // A sweep stub returning c-1001 as a candidate, as the live connector's
+      // full-sweep path would. The generator's sweep query (findPatients({}))
+      // carries no branch filter — FindPatientsQuery has no branch field — so
+      // the requested --branch must NOT be stamped into the swept patient's
+      // provenance metadata (M0047/Phase-5 whole-branch review, finding #2):
+      // c-1001 belongs to Fermosa Tejero in the fixtures, and tagging it
+      // "Fermosa Imus" would be a false provenance claim.
+      const sweepConnector: CRMConnector = {
+        kind: connector.kind,
+        healthCheck: () => connector.healthCheck(),
+        findPatients: (): Promise<FindPatientsResult> =>
+          Promise.resolve({
+            outcome: "ambiguous",
+            candidates: [
+              {
+                crmId: "c-1001",
+                fullName: "Santos, Maria",
+                dateOfBirth: "1992-03-14",
+                mobileNo: null,
+                membershipType: "Regular",
+                lastVisit: "2026-07-10",
+              },
+            ],
+          }),
+        fetchPatientRecord: (crmId, window) => connector.fetchPatientRecord(crmId, window),
+      };
+
+      const manifest = await generateDataset(
+        { mode: "branch", branch: "Fermosa Imus", outDir, resume: false },
+        sweepConnector
+      );
+
+      const metadata = JSON.parse(
+        readFileSync(path.join(outDir, "crm", "c-1001", "metadata.json"), "utf8")
+      );
+      expect(metadata.branch).toBeNull();
+      // Dropping the stamp must not be silent: the unapplied filter is
+      // surfaced loudly in the manifest.
+      expect(manifest.warnings).toEqual([
+        expect.stringContaining('branch "Fermosa Imus" requested but NOT applied'),
+      ]);
+      expect(manifest.patients).toEqual(["c-1001"]);
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("writePatientFiles — unsafe crmId", () => {
   it("throws rather than writing outside the dataset tree for a crmId containing '..'", () => {
     const outDir = makeOutDir();
