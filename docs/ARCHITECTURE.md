@@ -81,6 +81,7 @@ its own service later without untangling the codebase. See [DECISIONS.md](DECISI
 │   │                        #   snapshot/ — immutable audit evidence engine (M0043, ADR-035);
 │   │                        #   dataset/ — read-only CRM→disk dataset builder (M0045; sweep modes + enumeration + verify, M0050)
 │   │  audit-package/         #   reproducible, self-verifying audit evidence packages (M0051)
+│   │  dashboard/             #   role-scoped dashboard aggregation over real data (M0053)
 │   ├── report/              # Audit report generator: HTML/PDF/JSON from stored evidence (M0046)
 │   ├── audit/               # AuditService seam → orchestrator (ADR-029, §11)
 │   ├── orchestrator/        # Audit workflow engine: jobs, stages, state machine (3.6)
