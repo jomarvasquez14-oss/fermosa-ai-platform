@@ -30,6 +30,8 @@
 | **M0043 / 4.3**  | Audit evidence snapshot engine                      | ✅ **Complete** (2026-07-14) |
 | **M0042A / 4.2a**| Connector validated vs real CRM captures            | ✅ **Complete** (2026-07-14) |
 | **M0044 / 4.4**  | Live CRM validation vs production (read path)       | ✅ **Validated** (2026-07-14; invoice-detail deferred) |
+| **M0045 / 4.5**  | CRM dataset generator (read-only, resumable)        | ✅ **Complete** (2026-07-14) |
+| **M0046 / 4.6**  | Audit report generator (HTML/PDF/JSON from evidence)| ✅ **Complete** (2026-07-14) |
 | **M2**           | Audit module core                                   | Next                         |
 | **M3**           | AI-assisted auditing                                | Planned                      |
 | **M4**           | Reports & administration                            | Planned                      |
