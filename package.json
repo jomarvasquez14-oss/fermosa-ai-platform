@@ -28,7 +28,9 @@
     "audit:pipeline": "tsx --conditions=react-server scripts/run-audit-pipeline.ts",
     "ocr:gt:check": "tsx --conditions=react-server scripts/validate-ground-truth.ts",
     "ocr:extract": "tsx --conditions=react-server scripts/ocr-extract.ts",
-    "ocr:score": "tsx --conditions=react-server scripts/ocr-score.ts"
+    "ocr:score": "tsx --conditions=react-server scripts/ocr-score.ts",
+    "intake:template": "tsx --conditions=react-server scripts/make-intake-template.ts",
+    "intake:check": "tsx --conditions=react-server scripts/intake-check.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

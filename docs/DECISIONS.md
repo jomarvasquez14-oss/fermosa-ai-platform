@@ -1018,3 +1018,43 @@ change rippled through every OCR consumer (mock, playground, review kit, matchin
 all updated in lockstep; the down-map means the richer fields are captured and
 calibrated (M0060) before they change any finding, which is the safe order. The
 daily-rollup omission means branch-level financial cross-checks wait for a v3 schema.
+
+## ADR-041: Structured logbook intake (Excel/CSV) as a first-class input alongside OCR
+
+**Status:** Accepted _(2026-07-15, M0061)_
+
+**Context:** The only planned path from a paper logbook into the platform was OCR:
+photograph the handwritten page, have a vision model read it. That path is real but
+carries three costs — an Anthropic API key + a no-retention/DPA sign-off (patient PII),
+unproven handwriting accuracy, and pages that are hard to read even for a human. The
+owner asked whether branches could instead submit the transaction data **already typed**
+(Excel/CSV). For the data the audit actually reconciles against the CRM, typed input is
+~100% accurate, needs no AI call at all (we read the columns), and removes the API/PII
+blocker outright. The platform was already built around a swappable input seam:
+everything after the reading step consumes `ConfirmedEntry[]` (`services/rules/types.ts`)
+and is indifferent to whether entries came from OCR review or a spreadsheet.
+
+**Decision:** Add a **typed intake path** parallel to OCR, behind the same
+`ConfirmedEntry` seam. A single Zod schema (`services/intake/logbook-intake-schema.ts`)
+is the source of truth for BOTH the CSV template headers AND the parser, so they cannot
+drift. CSV is the interchange (dependency-free; Excel reads/writes it natively) with an
+in-repo quoted-CSV reader (`services/intake/csv.ts`) — **no new runtime dependency**. The
+parser (`logbook-intake.ts`) groups rows sharing `(date, branch, lineNumber)` into one
+client (mirroring the paper layout where a client spans several service lines) and
+**down-maps to `ConfirmedEntry` using the exact convention ADR-040 established** (primary
+service → treatment, staff → therapist, timeIn → time); the richer `StructuredEntry`
+(all services/meds with amounts, cash/bank, points) is retained for the later financial
+tally. The daily summary is parsed into a typed object and **stored/echoed only** —
+reconciling its totals against CRM sums is deferred (same boundary as ADR-040's rollup
+deferral). This milestone ships the templates, parser, and two CLIs (`intake:template`,
+`intake:check`); the web upload UI and making a spreadsheet a first-class live
+`AuditSubmission` source are an explicit follow-on.
+
+**Consequences:** Transaction reconciliation can now run end to end with no API key, no
+network, and no PII leaving the building — the fastest path to a working audit. The paper
+logbook remains available as contemporaneous **evidence** (a typed sheet alone is
+easy to doctor), with OCR reserved as an occasional spot-check of typed data against the
+original photo — so this decision does not retire OCR, it reprioritizes it. Cost: two
+intake paths to keep behind one seam, and the summary/richer fields are captured but not
+yet acted on, pending the deferred financial-tally milestone. No change to the CRM
+connector (still read-only), the rule engine, or any frozen contract.
