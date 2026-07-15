@@ -979,3 +979,42 @@ staff — a deliberate, documented trade-off). Costs: the harness's first run fe
 static assets from the live site before offline-stripping was added (no auth, no
 data sent — now prevented), and replay cannot verify AJAX-populated states (the
 invoice tab's populated DOM remains a live-gated unknown).
+
+## ADR-040: OCR extraction schema v2 — "per-patient full", derived from real logbooks
+
+**Status:** Accepted _(2026-07-15, M0059)_
+
+**Context:** OCR_ARCHITECTURE §11.1 held the top pre-OCR risk: the logbook page
+schema was assumed (v1 = patient/treatment/therapist/time), with the instruction to
+"get real photos before writing prompt v001." 189 real branch logbook photos then
+arrived. They are far richer than the assumption: each patient row records SERVICES
+WITH AMOUNTS, staff, time in/out, a session marker, cash/bank split, meds bought,
+and points (BP/OP/NP); the page also carries a daily financial rollup. M0056 had
+already unlocked the CRM's invoice payments/amounts, making two-sided amount
+reconciliation possible for the first time.
+
+**Decision:** Evolve the canonical OCR schema (`services/ai/ocr-schema.ts`) to
+**schemaVersion 2, "per-patient full"**: per-entry `patientName, staff, timeIn,
+timeOut, sessionNo, cash, bank` (each an `ExtractedField`), `services[]` and
+`meds[]` as arrays of `{ name, amount }`, and `points{ bp, op, np }`; plus a
+page-level `pageType` (`transaction | summary | mixed`) so summary-only pages
+validate with zero entries. The v1 shape is retired (no persisted OcrResult ever
+referenced it — the OCR pipeline never ran live). Prompt
+`logbook-extraction/v002` (registered, non-draft) replaces the v1 draft with the
+real columns; v001 stays frozen. Ground truth gets a **bare-value mirror** schema
+(`ground-truth-schema.ts`, no confidence) plus a validator CLI (`ocr:gt:check`).
+The **daily financial rollup is deferred** to a later schemaVersion. Existing
+consumers are kept whole by DOWN-MAPPING at their boundary rather than expanding
+them: the matching-executor maps v2 → the unchanged `ConfirmedEntry` (primary
+service → treatment, staff → therapist, timeIn → time), and the OCR review kit
+reviews the v2 scalar fields; wiring amounts/meds/points into the CRM comparison
+rules and the review UI is an explicit follow-on.
+
+**Consequences:** The prompt and schema now match reality, so the first live
+extraction is meaningful and OCR_ARCHITECTURE §11.1 is closed. The audit's core
+value — reconciling logbook amounts against CRM payments — is now representable end
+to end, pending the follow-on that consumes the richer fields. Cost: the schema
+change rippled through every OCR consumer (mock, playground, review kit, matching),
+all updated in lockstep; the down-map means the richer fields are captured and
+calibrated (M0060) before they change any finding, which is the safe order. The
+daily-rollup omission means branch-level financial cross-checks wait for a v3 schema.

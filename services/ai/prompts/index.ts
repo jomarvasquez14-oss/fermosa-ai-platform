@@ -30,6 +30,14 @@ export const PROMPT_VERSIONS: readonly PromptVersionInfo[] = [
     description: "Initial draft — assumed patient/treatment/therapist/time columns",
     draft: true,
   },
+  {
+    id: "logbook-extraction/v002",
+    family: "logbook-extraction",
+    version: "v002",
+    description:
+      "Per-patient full (schema v2, M0059) — real columns: services+amounts, staff, time in/out, #/SS, cash/bank, meds, BP/OP/NP",
+    draft: false,
+  },
 ];
 
 const VALID_SEGMENT = /^[a-z0-9-]+$/;

@@ -11,7 +11,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
 
 import { ClaudeVisionProvider } from "./claude-vision-provider";
 
-const PROMPT = "logbook-extraction/v001";
+const PROMPT = "logbook-extraction/v002";
 
 function image(overrides: Partial<{ bytes: number; mimeType: string }> = {}) {
   return {
@@ -27,16 +27,24 @@ function claudeResponse(text: string, inputTokens = 1200, outputTokens = 300) {
   };
 }
 
+const f = (value: string | null, confidence = 0.9) => ({ value, confidence, unreadable: false });
 const VALID_JSON = JSON.stringify({
-  schemaVersion: 1,
+  schemaVersion: 2,
   pageNumber: 1,
+  pageType: "transaction",
   entries: [
     {
       lineNumber: 1,
-      patientName: { value: "Maria Santos", confidence: 0.93, unreadable: false },
-      treatment: { value: "Diamond Peel", confidence: 0.97, unreadable: false },
-      therapist: { value: "J. Cruz", confidence: 0.9, unreadable: false },
-      time: { value: "2:30 PM", confidence: 0.88, unreadable: false },
+      patientName: f("Maria Santos", 0.93),
+      staff: f("J. Cruz", 0.9),
+      timeIn: f("2:30 PM", 0.88),
+      timeOut: f(null),
+      sessionNo: f("1st", 0.8),
+      services: [{ name: f("Diamond Peel", 0.97), amount: f("1500", 0.9) }],
+      meds: [],
+      cash: f("1500", 0.9),
+      bank: f(null),
+      points: { bp: f(null), op: f(null), np: f(null) },
       boundingBox: null,
       entryConfidence: 0.88,
     },
@@ -77,7 +85,7 @@ describe("ClaudeVisionProvider.extractLogbook", () => {
 
     // The versioned prompt artifact (not an inline string) is the system prompt.
     const request = createMock.mock.calls[0]![0] as { system: string; temperature: number };
-    expect(request.system).toContain("logbook-extraction v001");
+    expect(request.system).toContain("logbook-extraction v002");
     expect(request.temperature).toBe(0);
   });
 

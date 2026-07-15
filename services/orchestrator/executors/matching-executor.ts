@@ -40,18 +40,23 @@ export const matchingExecutor: StageExecutor = {
       if (image.status !== "STORED") continue;
       const result = await provider.extractLogbook({
         image: { data: new Uint8Array(image.fileSizeBytes ?? 1024), mimeType: "image/png" },
-        promptVersion: "logbook-extraction/v001",
+        promptVersion: "logbook-extraction/v002",
         model: "mock-messy",
       });
       for (const entry of result.extraction?.entries ?? []) {
+        // OCR schema v2 (M0059) is "per-patient full"; the CRM comparison still
+        // consumes the four ConfirmedEntry facts, so down-map here — primary
+        // service → treatment, staff → therapist, timeIn → time. Wiring the
+        // richer fields (amounts/meds/points) into the rule engine is a
+        // follow-on milestone, deliberately out of scope for the schema change.
         entries.push({
           imageId: image.id,
           pageNumber: index + 1,
           lineNumber: entry.lineNumber,
           patientName: entry.patientName.value,
-          treatment: entry.treatment.value,
-          therapist: entry.therapist.value,
-          time: entry.time.value,
+          treatment: entry.services[0]?.name.value ?? null,
+          therapist: entry.staff.value,
+          time: entry.timeIn.value,
         });
       }
     }

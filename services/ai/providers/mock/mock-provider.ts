@@ -1,6 +1,10 @@
 import { AppError } from "@/lib/errors";
 import type { AIProvider } from "@/services/ai/ai-provider";
-import { validateOcrExtraction, type OcrPageExtraction } from "@/services/ai/ocr-schema";
+import {
+  validateOcrExtraction,
+  type ExtractedField,
+  type OcrPageExtraction,
+} from "@/services/ai/ocr-schema";
 import type {
   AIRequestOptions,
   AIUsage,
@@ -28,16 +32,18 @@ import type {
 
 const FIRST = ["Maria", "Joyce", "Catherine", "Angela", "Kristine", "Gerald", "Stephanie", "Aljon"];
 const LAST = ["Santos", "Reyes", "dela Cruz", "Garcia", "Torres", "Miranda", "Rosales", "Arellano"];
-const TREATMENTS = [
+const SERVICES = [
   "Gluta Drip",
   "Diamond Peel",
   "RF Slimming",
-  "Underarm Whitening",
   "Hydrafacial",
   "Carbon Laser",
-  "Warts Removal",
+  "Carbon Face",
+  "Acne Facial",
+  "Bronze Membership",
 ];
-const THERAPISTS = ["J. Cruz", "M. Lim", "A. Bautista", "R. Villanueva", "K. Ramos"];
+const MEDS = ["Acne Soap", "Antibac Toner", "Sunmist", "Age Defy", "Oatmeal Soap", "Clinda Cream"];
+const STAFF = ["Mhalet", "Marvi", "Lyra", "Alcane", "Amy"];
 
 /** Small deterministic PRNG (mulberry32). */
 function rng(seed: number): () => number {
@@ -61,81 +67,97 @@ function round2(n: number): number {
 
 function buildExtraction(seed: number, messy: boolean): OcrPageExtraction {
   const random = rng(seed);
-  const entryCount = 3 + Math.floor(random() * 5);
+  const entryCount = 2 + Math.floor(random() * 4);
   const entries: OcrPageExtraction["entries"] = [];
   const unreadableRegions: OcrPageExtraction["unreadableRegions"] = [];
 
   for (let line = 1; line <= entryCount; line++) {
     const base = messy ? 0.55 : 0.9;
     const spread = messy ? 0.4 : 0.09;
-    const conf = () => round2(Math.min(1, base + random() * spread));
+    // Every leaf confidence is recorded so entryConfidence is the true min().
+    const leaves: number[] = [];
+    const field = (value: string | null): ExtractedField => {
+      const confidence = round2(Math.min(1, base + random() * spread));
+      leaves.push(confidence);
+      return { value, confidence, unreadable: false };
+    };
 
-    const therapistUnreadable = messy && random() < 0.25;
-    if (therapistUnreadable) {
-      unreadableRegions.push({ lineNumber: line, reason: "smudged initials" });
+    const staffUnreadable = messy && random() < 0.25;
+    if (staffUnreadable) {
+      unreadableRegions.push({ lineNumber: line, reason: "smudged staff initials" });
+    }
+    let staff: ExtractedField;
+    if (staffUnreadable) {
+      leaves.push(0);
+      staff = { value: null, confidence: 0, unreadable: true };
+    } else {
+      staff = field(pick(random, STAFF));
     }
 
     const hour = 9 + Math.floor(random() * 9);
     const minute = pick(random, ["00", "15", "30", "45"]);
+    const timeIn = field(`${hour > 12 ? hour - 12 : hour}:${minute} ${hour >= 12 ? "PM" : "AM"}`);
 
-    const fields = {
-      patientName: {
-        value: `${pick(random, FIRST)} ${pick(random, LAST)}`,
-        confidence: conf(),
-        unreadable: false,
-      },
-      treatment: { value: pick(random, TREATMENTS), confidence: conf(), unreadable: false },
-      therapist: therapistUnreadable
-        ? { value: null, confidence: 0, unreadable: true }
-        : { value: pick(random, THERAPISTS), confidence: conf(), unreadable: false },
-      time: {
-        value: `${hour > 12 ? hour - 12 : hour}:${minute} ${hour >= 12 ? "PM" : "AM"}`,
-        confidence: conf(),
-        unreadable: false,
-      },
-    };
+    const services = Array.from({ length: 1 + Math.floor(random() * 3) }, () => ({
+      name: field(pick(random, SERVICES)),
+      amount: field(String(300 + Math.floor(random() * 17) * 100)),
+    }));
+    const meds = Array.from({ length: Math.floor(random() * 3) }, () => ({
+      name: field(pick(random, MEDS)),
+      amount: field(String(100 + Math.floor(random() * 4) * 50)),
+    }));
+
+    const paidByBank = random() < 0.35;
+    const total = String(500 + Math.floor(random() * 30) * 100);
 
     entries.push({
       lineNumber: line,
-      ...fields,
+      patientName: field(`${pick(random, LAST)}, ${pick(random, FIRST)}`),
+      staff,
+      timeIn,
+      timeOut: field(null),
+      sessionNo: field(pick(random, ["1st", "2nd", "3rd", "1/c", "6/c"])),
+      services,
+      meds,
+      cash: field(paidByBank ? null : total),
+      bank: field(paidByBank ? total : null),
+      points: {
+        bp: field(random() < 0.5 ? String(100 + Math.floor(random() * 20) * 50) : null),
+        op: field(random() < 0.2 ? "500" : null),
+        np: field(random() < 0.4 ? String(100 + Math.floor(random() * 20) * 50) : null),
+      },
       boundingBox: null,
-      entryConfidence: round2(
-        Math.min(
-          fields.patientName.confidence,
-          fields.treatment.confidence,
-          fields.therapist.confidence,
-          fields.time.confidence
-        )
-      ),
+      entryConfidence: round2(Math.min(...leaves)),
     });
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     pageNumber: 1,
+    pageType: "transaction",
     entries,
     unreadableRegions,
     pageConfidence:
       entries.length === 0 ? 1 : round2(Math.min(...entries.map((entry) => entry.entryConfidence))),
-    notes: messy ? "Simulated poor capture: uneven lighting, smudged column 3." : null,
+    notes: messy ? "Simulated poor capture: uneven lighting, smudged staff column." : null,
   };
 }
 
-/** Deliberately violates the schema: bad types, missing field, out-of-range confidence. */
+/** Deliberately violates the schema: bad types, missing fields, out-of-range confidence. */
 function buildMalformedRaw(seed: number): string {
   const random = rng(seed);
   return JSON.stringify({
-    schemaVersion: 1,
+    schemaVersion: 2,
     pageNumber: "one", // wrong type
+    pageType: "transaction",
     entries: [
       {
         lineNumber: 1,
-        patientName: { value: `${pick(random, FIRST)} ${pick(random, LAST)}`, confidence: 1.7 }, // >1, missing unreadable
-        treatment: pick(random, TREATMENTS), // not a wrapped field
-        time: { value: "2:30 PM", confidence: 0.9, unreadable: false },
+        patientName: { value: `${pick(random, LAST)}, ${pick(random, FIRST)}`, confidence: 1.7 }, // >1, missing unreadable
+        services: pick(random, SERVICES), // should be an array of {name, amount}
         boundingBox: null,
         entryConfidence: 0.9,
-      }, // therapist missing entirely
+      }, // staff / timeIn / meds / cash / bank / points all missing
     ],
     pageConfidence: 0.9,
     // unreadableRegions and notes missing

@@ -325,9 +325,9 @@ export function PlaygroundScreen({ catalog }: { catalog: PlaygroundCatalog }) {
                       <tr className="border-b text-left text-xs text-muted-foreground uppercase">
                         <th className="py-2 pr-3">#</th>
                         <th className="py-2 pr-3">Patient</th>
-                        <th className="py-2 pr-3">Treatment</th>
-                        <th className="py-2 pr-3">Therapist</th>
-                        <th className="py-2 pr-3">Time</th>
+                        <th className="py-2 pr-3">Services</th>
+                        <th className="py-2 pr-3">Staff</th>
+                        <th className="py-2 pr-3">Time in</th>
                         <th className="py-2">Entry conf.</th>
                       </tr>
                     </thead>
@@ -339,13 +339,24 @@ export function PlaygroundScreen({ catalog }: { catalog: PlaygroundCatalog }) {
                             <FieldCell field={entry.patientName} />
                           </td>
                           <td className="py-2 pr-3">
-                            <FieldCell field={entry.treatment} />
+                            {entry.services.length > 0 ? (
+                              <span className="inline-flex items-center gap-1">
+                                <FieldCell field={entry.services[0]!.name} />
+                                {entry.services.length > 1 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    +{entry.services.length - 1}
+                                  </span>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
                           </td>
                           <td className="py-2 pr-3">
-                            <FieldCell field={entry.therapist} />
+                            <FieldCell field={entry.staff} />
                           </td>
                           <td className="py-2 pr-3">
-                            <FieldCell field={entry.time} />
+                            <FieldCell field={entry.timeIn} />
                           </td>
                           <td className="py-2">
                             <ConfidenceBadge value={entry.entryConfidence} />
