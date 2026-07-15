@@ -185,12 +185,13 @@ export class PlaywrightCRMConnector implements CRMConnector {
     await profile.openTab("invoice");
     const invoiceTab = new InvoiceTab(manager.driver, manager.registry);
     const invoices = await invoiceTab.readInvoices();
-    const invoiceDetails = new Map<string, RawInvoiceDetail>();
-    // Detail retrieval stays off until its trigger is confirmed live —
-    // payments are null, never guessed (selector map capability, v1: false).
-    if (manager.registry.capability("invoiceDetail")) {
-      logger.warn("invoiceDetail capability is on but no confirmed trigger exists in v1");
-    }
+    // Invoice detail (services + full payment history) is READ-ONLY from each
+    // row's embedded base64 `data-details` attribute — no click, no navigation
+    // (M0056). Gated on the capability so it can be turned off without code
+    // changes; when off, payments stay null (never guessed).
+    const invoiceDetails = manager.registry.capability("invoiceDetail")
+      ? await invoiceTab.readInvoiceDetails()
+      : new Map<string, RawInvoiceDetail>();
 
     const activityPage = (await manager.navigation.navigateTo("activity-log")) as ActivityLogPage;
     const activity = await activityPage.readFiltered(

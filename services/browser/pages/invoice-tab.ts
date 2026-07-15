@@ -1,4 +1,3 @@
-import type { TableData } from "@/services/browser/driver/browser-driver";
 import { LayoutChangedError } from "@/services/browser/types";
 import { headerIndexMap, isEmptyTableResult, normalizeText } from "@/services/browser/utils/parse";
 import { BasePage } from "./base-page";
@@ -9,11 +8,12 @@ import { BasePage } from "./base-page";
  * DataTables empty cell). Status literals are the CRM's own filter options:
  * NOT PAID / PARTIALLY PAID / FULLY PAID / CANCELLED.
  *
- * The invoice DETAIL view (SERVICES + PAYMENTS tables, per the reference
- * photos) is parsed structurally — tables are classified by their headers,
- * not by CSS, because the detail markup was never captured. Reaching the
- * detail is gated behind the `invoiceDetail` capability flag until the
- * trigger is confirmed live (v1: off).
+ * The invoice DETAIL (services + full payment history) is NOT a separate page:
+ * the CRM embeds it, per row, as a base64-encoded JSON `data-details`
+ * attribute on each `<tr>` (verified live, M0056). Reading it is strictly
+ * READ-ONLY — the data is already in the list DOM; no click, no navigation, no
+ * detail request. `readInvoiceDetails` decodes it and is gated behind the
+ * `invoiceDetail` capability (v1: on since M0056).
  */
 
 export interface RawInvoiceRow {
@@ -34,13 +34,32 @@ export interface RawInvoicePayment {
   method: string | null;
   service: string | null;
   remarks: string | null;
-  /** "102 Remelee Pulma" — staff id + name, split by the normalizer. */
+  /** "57 Clouie Mondragon" — staff id + name, split by the normalizer. */
   receivedBy: string | null;
+  /** Derived from deleted_at / request_for_deletion: completed | cancellation-requested | cancelled. */
+  status: string;
 }
 
 export interface RawInvoiceDetail {
   services: Array<{ service: string; description: string | null }>;
   payments: RawInvoicePayment[];
+}
+
+/** The subset of the embedded `data-details` JSON we read (READ-ONLY). */
+interface EmbeddedInvoiceDetail {
+  ref_no?: string | number | null;
+  items?: Array<{ service_name?: string | null; description?: string | null }> | null;
+  payments?: Array<{
+    date_paid?: string | null;
+    prn?: string | null;
+    amount_paid?: number | string | null;
+    payment_type?: string | null;
+    service_name?: string | null;
+    remarks?: string | null;
+    received_by?: string | null;
+    deleted_at?: string | null;
+    request_for_deletion?: number | boolean | null;
+  }> | null;
 }
 
 const LIST_COLUMNS = [
@@ -53,7 +72,54 @@ const LIST_COLUMNS = [
   "STATUS",
 ] as const;
 
-const PAYMENT_COLUMNS = ["DATE", "REFERENCE NO.", "AMOUNT PAID", "PAYMENT METHOD"] as const;
+function toOptional(text: string | null | undefined): string | null {
+  const value = normalizeText(String(text ?? ""));
+  return value.length > 0 && value !== "-" ? value : null;
+}
+
+function paymentStatus(payment: NonNullable<EmbeddedInvoiceDetail["payments"]>[number]): string {
+  if (payment.deleted_at) return "cancelled";
+  if (payment.request_for_deletion) return "cancellation-requested";
+  return "completed";
+}
+
+/**
+ * PURE decoder (M0056): each entry is one row's base64 `data-details` JSON.
+ * Returns a map keyed by the invoice's ref_no. Unparseable / detail-less
+ * entries are skipped (the list columns still carry the invoice). Cancelled
+ * and deletion-requested payments are INCLUDED with a `status` so an audit
+ * sees reversed money, not a silently shorter history.
+ */
+export function decodeInvoiceDetails(encoded: (string | null)[]): Map<string, RawInvoiceDetail> {
+  const map = new Map<string, RawInvoiceDetail>();
+  for (const raw of encoded) {
+    if (!raw) continue;
+    let parsed: EmbeddedInvoiceDetail;
+    try {
+      parsed = JSON.parse(Buffer.from(raw, "base64").toString("utf8")) as EmbeddedInvoiceDetail;
+    } catch {
+      continue;
+    }
+    const refNo = normalizeText(String(parsed.ref_no ?? ""));
+    if (!refNo) continue;
+    const services = (parsed.items ?? []).map((item) => ({
+      service: normalizeText(String(item.service_name ?? "")),
+      description: toOptional(item.description),
+    }));
+    const payments: RawInvoicePayment[] = (parsed.payments ?? []).map((payment) => ({
+      date: normalizeText(String(payment.date_paid ?? "")),
+      referenceNo: toOptional(payment.prn),
+      amountPaid: normalizeText(String(payment.amount_paid ?? "")),
+      method: toOptional(payment.payment_type),
+      service: toOptional(payment.service_name),
+      remarks: toOptional(payment.remarks),
+      receivedBy: toOptional(payment.received_by),
+      status: paymentStatus(payment),
+    }));
+    map.set(refNo, { services, payments });
+  }
+  return map;
+}
 
 export class InvoiceTab extends BasePage {
   readonly pageId = "invoice-tab" as const;
@@ -91,65 +157,14 @@ export class InvoiceTab extends BasePage {
   }
 
   /**
-   * Parse an OPEN invoice detail view. Tables are classified by headers:
-   * SERVICE+DESCRIPTION = services, DATE+REFERENCE NO.+AMOUNT PAID+... =
-   * payments (multiple rows = installments — partial payments are a main
-   * path, not an edge case). No payments table = layout drift, loud.
+   * Read every invoice's embedded detail (services + full payment history)
+   * from the list rows' base64 `data-details` attributes — keyed by ref_no.
+   * READ-ONLY: the data is already in the DOM; nothing is clicked or navigated.
+   * Returns an empty map when the table is empty.
    */
-  async readDetail(): Promise<RawInvoiceDetail> {
-    const tables = await this.driver.tables(this.registry.selector("invoice-detail", "anyTable"));
-
-    const services: RawInvoiceDetail["services"] = [];
-    let payments: RawInvoicePayment[] | null = null;
-
-    for (const table of tables) {
-      if (this.matchesHeaders(table, ["SERVICE", "DESCRIPTION"])) {
-        for (const cells of table.rows) {
-          const service = normalizeText(cells[0]?.text ?? "");
-          if (service) services.push({ service, description: this.optional(cells[1]?.text) });
-        }
-        continue;
-      }
-      if (this.matchesHeaders(table, PAYMENT_COLUMNS)) {
-        const columns = headerIndexMap(table.headers, PAYMENT_COLUMNS, "Invoice payments");
-        const received = this.headerIndex(table, "RECEIVED BY");
-        const service = this.headerIndex(table, "SERVICE");
-        const remarks = this.headerIndex(table, "REMARKS");
-        payments = table.rows.map((cells) => ({
-          date: normalizeText(cells[columns.DATE]?.text ?? ""),
-          referenceNo: this.optional(cells[columns["REFERENCE NO."]]?.text),
-          amountPaid: normalizeText(cells[columns["AMOUNT PAID"]]?.text ?? ""),
-          method: this.optional(cells[columns["PAYMENT METHOD"]]?.text),
-          service: service === null ? null : this.optional(cells[service]?.text),
-          remarks: remarks === null ? null : this.optional(cells[remarks]?.text),
-          receivedBy: received === null ? null : this.optional(cells[received]?.text),
-        }));
-      }
-    }
-
-    if (payments === null) {
-      throw new LayoutChangedError(
-        `Invoice detail: no table with columns ${PAYMENT_COLUMNS.join(", ")} was found ` +
-          `(${this.registry.version}). Never silently continue — the map needs review.`
-      );
-    }
-    return { services, payments };
-  }
-
-  private matchesHeaders(table: TableData, required: readonly string[]): boolean {
-    const headers = table.headers.map((header) => normalizeText(header).toUpperCase());
-    return required.every((name) => headers.includes(name.toUpperCase()));
-  }
-
-  private headerIndex(table: TableData, name: string): number | null {
-    const index = table.headers.findIndex(
-      (header) => normalizeText(header).toUpperCase() === name.toUpperCase()
-    );
-    return index === -1 ? null : index;
-  }
-
-  private optional(text: string | null | undefined): string | null {
-    const value = normalizeText(text ?? "");
-    return value.length > 0 && value !== "-" ? value : null;
+  async readInvoiceDetails(): Promise<Map<string, RawInvoiceDetail>> {
+    await this.waitForData();
+    const encoded = await this.driver.locator(this.sel("rows")).attrs("data-details");
+    return decodeInvoiceDetails(encoded);
   }
 }

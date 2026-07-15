@@ -29,7 +29,7 @@ export interface PageSelectors {
    * replay-executed; "unverified" = photos/guesses only. "live" arrives
    * with credentials.
    */
-  verification: "capture-replay" | "capture" | "unverified";
+  verification: "live-verified" | "capture-replay" | "capture" | "unverified";
   /**
    * Mutating controls observed on this page that automation must NEVER
    * touch (read-only contract, PROJECT_RULES #24). Documentation and
@@ -49,12 +49,15 @@ export const SELECTOR_MAP_V1: SelectorMap = {
   version: "crm-selectors/v1",
   capabilities: {
     /**
-     * The invoice DETAIL view (SERVICES + PAYMENTS tables, per the reference
-     * photos) is reached by invoice.js, which the captures do not include.
-     * Until the trigger is confirmed against the live CRM, connectors must
-     * not attempt detail retrieval â€” invoice payments stay null.
+     * ENABLED (M0056). The invoice detail (services + full payment history) is
+     * NOT a separate page — the CRM embeds it per row as a base64 JSON
+     * `data-details` attribute, verified live against production. Reading it is
+     * strictly READ-ONLY (already in the list DOM; no click, no navigation), so
+     * `InvoiceTab.readInvoiceDetails` populates payments. No selector break →
+     * still crm-selectors/v1 (additive, per ADR-036); the new payment `status`
+     * field is additive/optional (ADR-039).
      */
-    invoiceDetail: false,
+    invoiceDetail: true,
   },
   pages: {
     // -- /login: VERIFIED against the 2026-07-14 capture (M0042A) ------------
@@ -199,19 +202,26 @@ export const SELECTOR_MAP_V1: SelectorMap = {
       neverInteract: ["a[href*='request_for_deletion']", "a[href*='invoice/create']"],
     },
 
-    // -- Invoice detail view (reference photos; trigger unconfirmed) ---------
+    // -- Invoice detail: NOT a separate page (M0056, live-verified) ----------
+    // The detail (services + full payment history) is embedded per invoice row
+    // as a base64 JSON `data-details` attribute on the `<tr>` — read READ-ONLY
+    // by InvoiceTab.readInvoiceDetails via `locator(rows).attrs("data-details")`.
+    // There is no detail page to navigate to and no row-level detail link (the
+    // cells are `data-clickable`, opening a JS modal we deliberately never
+    // click). This entry is retained only to document that the earlier guessed
+    // `/invoice/{ref}` page does NOT exist; the mutating controls stay listed
+    // as a tripwire.
     "invoice-detail": {
-      verification: "unverified",
-      path: "/invoice/{ref}",
-      fingerprint: [],
+      verification: "live-verified",
+      path: "/clients/{cid}#invoice",
+      fingerprint: ["#invoice #invoice-table"],
       elements: {
-        anyTable: "table",
-        detailTrigger: "td a",
+        dataDetails: "#invoice #invoice-table tbody tr[data-details]",
       },
       neverInteract: [
-        "a:has-text('Edit Payment Date')",
-        "a:has-text('Delete Payment')",
-        "button:has-text('New Payment')",
+        "#invoice a[href*='invoice/create']",
+        "#invoice a[href*='request_for_deletion']",
+        "#invoice td[data-clickable]",
       ],
     },
 

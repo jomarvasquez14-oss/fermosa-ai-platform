@@ -31,8 +31,8 @@ describe("SelectorRegistry", () => {
     expect(() => registry.selector("login", "nonexistent")).toThrow(/not defined/);
   });
 
-  it("capabilities gate unconfirmed selectors (invoice detail is off in v1)", () => {
-    expect(registry.capability("invoiceDetail")).toBe(false);
+  it("capabilities gate features (invoice detail is ON since M0056; unknown is off)", () => {
+    expect(registry.capability("invoiceDetail")).toBe(true);
     expect(registry.capability("unknown-capability")).toBe(false);
   });
 });

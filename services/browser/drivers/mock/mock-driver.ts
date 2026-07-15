@@ -80,6 +80,20 @@ interface MockPatientProfile {
     balance: string;
     dateUpdated: string;
     status: string;
+    /** Embedded detail simulating the live `data-details` base64 attribute (M0056). */
+    detail?: {
+      items: Array<{ service_name: string; description: string | null }>;
+      payments: Array<{
+        date_paid: string;
+        prn: string | null;
+        amount_paid: number;
+        payment_type: string | null;
+        received_by: string | null;
+        remarks: string | null;
+        deleted_at?: string | null;
+        request_for_deletion?: number;
+      }>;
+    };
   }>;
   activity: Array<{
     logName: string;
@@ -140,6 +154,37 @@ const DEMO_PATIENTS: readonly MockPatientProfile[] = [
         balance: "1,999.00",
         dateUpdated: "2026-07-10",
         status: "PARTIALLY PAID",
+        detail: {
+          items: [{ service_name: "GLUTA DRIP 10 SESSION", description: "ULTRAWHITE DRIP" }],
+          payments: [
+            {
+              date_paid: "2026-07-03",
+              prn: "162320-001",
+              amount_paid: 11500,
+              payment_type: "Cash",
+              received_by: "02 Shiela Layam",
+              remarks: null,
+            },
+            {
+              date_paid: "2026-07-10",
+              prn: "162320-002",
+              amount_paid: 2500,
+              payment_type: "GCash",
+              received_by: "01 Dyan Montinola",
+              remarks: "installment",
+            },
+            // A cancelled payment — must surface with status "cancelled".
+            {
+              date_paid: "2026-07-11",
+              prn: "162320-003",
+              amount_paid: 1000,
+              payment_type: "Cash",
+              received_by: "01 Dyan Montinola",
+              remarks: "voided",
+              deleted_at: "2026-07-11 10:00:00",
+            },
+          ],
+        },
       },
     ],
     activity: [
@@ -592,6 +637,22 @@ export class MockBrowserDriver implements BrowserDriver {
     const profile = V1["patient-profile"].elements;
     const patient = this.currentPatient();
     if (patient && this.effectivePath() === "/clients/{cid}") {
+      if (selector === V1["invoice-tab"].elements.rows) {
+        // Simulate the live per-row base64 `data-details` attribute (M0056).
+        const dataDetails = patient.invoices.map((invoice) =>
+          invoice.detail
+            ? Buffer.from(
+                JSON.stringify({
+                  ref_no: invoice.refNo,
+                  items: invoice.detail.items,
+                  payments: invoice.detail.payments,
+                }),
+                "utf8"
+              ).toString("base64")
+            : null
+        );
+        return { texts: [], values: [], attrs: { "data-details": dataDetails } };
+      }
       if (selector === V1["treatment-tab"].elements.panelTitles) {
         return { texts: patient.packages.map((pkg) => pkg.title), values: [], attrs: {} };
       }

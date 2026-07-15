@@ -135,7 +135,34 @@ describe("fetchPatientRecord", () => {
         balance: "1999.00",
         status: "partial",
         dateUpdated: "2026-07-10",
-        payments: null, // detail capability is off in v1
+        // Payments now parsed from the embedded `data-details` (M0056),
+        // including one cancelled payment surfaced with status.
+        payments: [
+          {
+            paidAt: "2026-07-03",
+            amount: "11500.00",
+            mode: "Cash",
+            receivedBy: "02 Shiela Layam",
+            referenceNo: "162320-001",
+            status: "completed",
+          },
+          {
+            paidAt: "2026-07-10",
+            amount: "2500.00",
+            mode: "GCash",
+            receivedBy: "01 Dyan Montinola",
+            referenceNo: "162320-002",
+            status: "completed",
+          },
+          {
+            paidAt: "2026-07-11",
+            amount: "1000.00",
+            mode: "Cash",
+            receivedBy: "01 Dyan Montinola",
+            referenceNo: "162320-003",
+            status: "cancelled",
+          },
+        ],
       },
     ]);
 

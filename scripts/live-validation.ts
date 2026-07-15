@@ -254,33 +254,17 @@ async function main(): Promise<void> {
           return { note: "profile + invoice tab fingerprints verified; screenshots saved" };
         });
 
-        await check("invoice-detail-discovery", async () => {
-          const table = await manager.driver.table(registry.selector("invoice-tab", "table"));
-          const links = table.rows
-            .flatMap((cells) => cells.flatMap((cell) => cell.links))
-            .filter((link) => link.href && !/^javascript:|^#/.test(link.href));
-          if (links.length === 0) {
-            return {
-              status: "INFO" as const,
-              note: "no row-level hrefs in the invoice table — detail trigger is JS-only or absent; capability stays off",
-            };
-          }
-          const target = links[0]!;
-          await manager.driver.goto(target.href!);
-          const html = await manager.driver.evaluate<string>("document.documentElement.outerHTML");
-          const capture = path.join(args.out, "invoice-detail-capture.html");
-          writeFileSync(capture, html, "utf8");
-          await screenshot(manager, args.out, "invoice-detail");
-          let parseNote: string;
-          try {
-            const invoiceTab = new InvoiceTab(manager.driver, manager.registry);
-            const detail = await invoiceTab.readDetail();
-            parseNote = `readDetail PARSED: ${detail.services.length} service(s), ${detail.payments.length} payment(s)`;
-          } catch (error) {
-            parseNote = `readDetail failed: ${error instanceof Error ? error.message : String(error)}`;
-          }
+        await check("invoice-detail-readonly", async () => {
+          // M0056: invoice detail is embedded per row as base64 `data-details`
+          // — read-only, no click, no navigation.
+          const invoiceTab = new InvoiceTab(manager.driver, manager.registry);
+          const details = await invoiceTab.readInvoiceDetails();
+          const totalPayments = [...details.values()].reduce((n, d) => n + d.payments.length, 0);
+          const cancelled = [...details.values()]
+            .flatMap((d) => d.payments)
+            .filter((p) => p.status !== "completed").length;
           return {
-            note: `${links.length} href(s) found; navigated (GET) to first (text="${target.text}"); capture saved; ${parseNote}`,
+            note: `${details.size} invoice(s) with embedded detail; ${totalPayments} payment(s) parsed (${cancelled} non-completed) — read-only`,
           };
         });
       }

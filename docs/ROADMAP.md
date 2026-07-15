@@ -40,6 +40,7 @@
 | **M0053 / 6.5**  | Audit dashboards (auditor / branch / admin)         | ✅ **Complete** (2026-07-14; real-data aggregation, dependency-free charts) |
 | **M0054 / 6.6**  | Scheduled audit pipeline (ADR-038; OCR wired-but-off)| ✅ **Complete** (2026-07-14; cadence + PipelineRun, composes existing services) |
 | **M0055 / 6.7**  | Operational analytics (over stored snapshots)       | ✅ **Complete** (2026-07-14; branches/revenue/staff/packages, never live CRM) |
+| **M0056 / 6.8**  | CRM connector production hardening (invoice detail live)| ✅ **Complete** (2026-07-14; invoiceDetail ON via embedded data-details, payments parsed, USER roles resolved, ADR-039) |
 | **M2**           | Audit module core                                   | Next                         |
 | **M3**           | AI-assisted auditing                                | Planned                      |
 | **M4**           | Reports & administration                            | Planned                      |

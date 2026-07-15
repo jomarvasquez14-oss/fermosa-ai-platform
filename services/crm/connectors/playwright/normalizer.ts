@@ -189,5 +189,7 @@ function toPayments(
     mode: payment.method ?? "",
     receivedBy: payment.receivedBy ?? "",
     referenceNo: payment.referenceNo,
+    // Per-payment status (ADR-039, M0056) — surfaces cancelled/reversed money.
+    status: payment.status,
   }));
 }

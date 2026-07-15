@@ -830,6 +830,44 @@ history snapshots can be large (retrieval windows bound this; OCR integration sh
 default to windowed captures), and orchestrator wiring (`CRM_RETRIEVAL` stage →
 `createSnapshot`) is deliberately deferred to the pipeline-integration sprint.
 
+## ADR-039: Invoice detail from the embedded `data-details` attribute + additive payment status
+
+**Status:** Accepted _(2026-07-14, M0056)_
+
+**Context:** Invoice DETAIL (services + full payment history) was the connector's last
+gap — `capabilities.invoiceDetail` stayed off because no capture showed a detail page or
+its trigger (M0044/M0049 found no row-level link; the cells opened a JS modal we refuse
+to click). Live investigation (M0056) revealed the CRM embeds the ENTIRE invoice detail
+in each list row as a **base64-encoded JSON `data-details` attribute** on the `<tr>` —
+including a structured `payments` array (amount, date, `prn` reference, `payment_type`,
+`received_by` "badge# Name", remarks, `deleted_at`/`request_for_deletion`) and an `items`
+services array. The data is already in the list DOM: reading it needs no click and no
+navigation.
+
+**Decision:** (1) Parse invoice detail from the embedded `data-details` attribute, READ-
+ONLY, via `InvoiceTab.readInvoiceDetails` (`locator(rows).attrs("data-details")` → base64
+→ JSON), keyed by `ref_no`. There is no detail page; the earlier guessed `/invoice/{ref}`
+does not exist. (2) **Enable `invoiceDetail`** — this is additive and non-breaking
+(a new element read, no existing selector changed), so it stays **`crm-selectors/v1`**
+per ADR-036; no v3. The `data-clickable` cells and mutating controls (New Invoice,
+request_for_deletion) stay in `neverInteract` as a tripwire. (3) **Add one ADDITIVE,
+OPTIONAL field** to the normalized payment sub-object: `status`
+(`completed | cancellation-requested | cancelled`, derived from `deleted_at` /
+`request_for_deletion`) so cancelled/reversed payments are surfaced honestly rather than
+dropped. Optional so evidence snapshots sealed before M0056 (no per-payment status) still
+validate on load — the frozen `NormalizedCrmPatientRecord` (ADR-027) is EXTENDED, never
+weakened, and no consumer (reports, rules) is required to read it.
+
+**Consequences:** The connector now reproduces the full invoice a human auditor sees —
+services and per-payment history with method, receiver, reference, and cancellation
+status — at **~0 added cost** (the data rides along in the list DOM; measured parse
+41 ms). Payments are populated for real (15 across 10 invoices in the live run). USER
+semantics were resolved as a by-product (below/CRM_DISCOVERY): staff appear as
+"badge# Name" with a separate `*_id`; the CRM exposes **no role** anywhere, confirming
+`performedBy.role = "unknown"` is correct, not a gap. Cost: newly-retrieved records carry
+the extra `status`, so their `contentHash`/`evidenceHash` differ from pre-M0056 records
+(expected — they are new retrievals).
+
 ## ADR-038: Scheduled audit pipeline as a cadence layer over per-submission orchestration
 
 **Status:** Accepted _(2026-07-14, M0054)_

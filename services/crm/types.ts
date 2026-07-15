@@ -129,6 +129,11 @@ export const normalizedCrmPatientRecordSchema = z.object({
             mode: z.string(),
             receivedBy: z.string(),
             referenceNo: z.string().nullable(),
+            // Additive, OPTIONAL (ADR-039, M0056): completed |
+            // cancellation-requested | cancelled. Optional so evidence
+            // snapshots sealed before M0056 (no per-payment status) still
+            // validate on load. Absent ⇒ status was not captured.
+            status: z.string().optional(),
           })
         )
         .nullable(),

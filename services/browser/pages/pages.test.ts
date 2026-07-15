@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { MockBrowserDriver, textCell } from "../drivers/mock/mock-driver";
 import { SelectorRegistry } from "../selectors";
 import { ActivityLogPage } from "./activity-log-page";
-import { InvoiceTab } from "./invoice-tab";
+import { decodeInvoiceDetails, InvoiceTab } from "./invoice-tab";
 import { PatientProfilePage } from "./patient-profile-page";
 import { PatientsPage } from "./patients-page";
 import { TreatmentTab } from "./treatment-tab";
@@ -204,69 +204,61 @@ describe("InvoiceTab", () => {
     expect(await new InvoiceTab(driver, registry).readInvoices()).toEqual([]);
   });
 
-  it("parses a detail view structurally: services + multi-payment installments", async () => {
+  it("reads embedded per-row invoice detail (services + payments incl cancelled) read-only", async () => {
     const profile = new PatientProfilePage(driver, registry);
     await profile.open("1001");
-    driver.setTables(registry.selector("invoice-detail", "anyTable"), [
-      {
-        headers: ["SERVICE", "DESCRIPTION"],
-        rows: [[textCell("GLUTA DRIP 10 SESSION"), textCell("GOLD DRIP")]],
-      },
-      {
-        headers: [
-          "DATE",
-          "REFERENCE NO.",
-          "AMOUNT PAID",
-          "PAYMENT METHOD",
-          "SERVICE",
-          "REMARKS",
-          "RECEIVED BY",
-        ],
-        rows: [
-          [
-            textCell("2026-05-10"),
-            textCell("162320-001"),
-            textCell("2,500.00"),
-            textCell("Cash"),
-            textCell("GLUTA DRIP 10 SESSION"),
-            textCell("Post-care instructions"),
-            textCell("102 Remelee Pulma"),
-          ],
-          [
-            textCell("2026-05-15"),
-            textCell("162320-002"),
-            textCell("2,500.00"),
-            textCell("Cash"),
-            textCell("GLUTA DRIP 10 SESSION"),
-            textCell("-"),
-            textCell("67 May Abrasaldo"),
-          ],
-        ],
-      },
-    ]);
+    await profile.openTab("invoice");
+    const details = await new InvoiceTab(driver, registry).readInvoiceDetails();
 
-    const detail = await new InvoiceTab(driver, registry).readDetail();
-    expect(detail.services).toEqual([
-      { service: "GLUTA DRIP 10 SESSION", description: "GOLD DRIP" },
+    const detail = details.get("007-162320");
+    expect(detail).toBeDefined();
+    expect(detail!.services).toEqual([
+      { service: "GLUTA DRIP 10 SESSION", description: "ULTRAWHITE DRIP" },
     ]);
-    expect(detail.payments).toHaveLength(2);
-    expect(detail.payments[0]).toMatchObject({
+    // Two completed installments + one cancelled payment.
+    expect(detail!.payments).toHaveLength(3);
+    expect(detail!.payments[0]).toMatchObject({
       referenceNo: "162320-001",
-      amountPaid: "2,500.00",
+      amountPaid: "11500",
       method: "Cash",
-      receivedBy: "102 Remelee Pulma",
+      receivedBy: "02 Shiela Layam",
+      status: "completed",
     });
-    expect(detail.payments[1]?.remarks).toBeNull(); // "-" is absence
+    expect(detail!.payments[2]).toMatchObject({ referenceNo: "162320-003", status: "cancelled" });
   });
+});
 
-  it("a detail view without a payments table is CRM_LAYOUT — never silent", async () => {
-    const profile = new PatientProfilePage(driver, registry);
-    await profile.open("1001");
-    driver.setTables(registry.selector("invoice-detail", "anyTable"), [
-      { headers: ["SERVICE", "DESCRIPTION"], rows: [] },
+describe("decodeInvoiceDetails", () => {
+  const encode = (obj: unknown) => Buffer.from(JSON.stringify(obj), "utf8").toString("base64");
+
+  it("decodes base64 data-details, keys by ref_no, and derives payment status", () => {
+    const map = decodeInvoiceDetails([
+      encode({
+        ref_no: "007-999",
+        items: [{ service_name: "DIAMOND PEEL", description: null }],
+        payments: [
+          { date_paid: "2026-07-01", prn: "999-001", amount_paid: 1500, payment_type: "GCash", received_by: "10 A B", remarks: null },
+          { date_paid: "2026-07-02", prn: "999-002", amount_paid: 500, payment_type: "Cash", received_by: "11 C D", remarks: "voided", deleted_at: "2026-07-02 09:00:00" },
+          { date_paid: "2026-07-03", prn: "999-003", amount_paid: 300, payment_type: "Cash", received_by: "11 C D", remarks: null, request_for_deletion: 1 },
+        ],
+      }),
+      null, // a row without a detail attribute — skipped, not an error
+      "not-valid-base64-json!!", // unparseable — skipped, never throws
     ]);
-    await expect(new InvoiceTab(driver, registry).readDetail()).rejects.toMatchObject({
-      code: "CRM_LAYOUT",
+
+    expect(map.size).toBe(1);
+    const detail = map.get("007-999")!;
+    expect(detail.services).toEqual([{ service: "DIAMOND PEEL", description: null }]);
+    expect(detail.payments.map((p) => p.status)).toEqual([
+      "completed",
+      "cancelled",
+      "cancellation-requested",
+    ]);
+    expect(detail.payments[0]).toMatchObject({
+      referenceNo: "999-001",
+      amountPaid: "1500",
+      method: "GCash",
+      receivedBy: "10 A B",
     });
   });
 });

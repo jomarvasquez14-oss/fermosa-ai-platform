@@ -209,6 +209,30 @@ retrieval (reports may later serve reconciliation cross-checks).
 > filter selects and hides the native element permanently — plain inputs only in
 > fingerprints. Still unverified: the invoice tab's post-AJAX DOM and the invoice
 > DETAIL view (capability off)._
+>
+> _Status update (M0049–M0055): validated against production and hardened — see
+> `docs/MILESTONES/M0049.md`. The connector logs in, searches (found/not-found/
+> ambiguous), retrieves schema-valid records across all page families, and logs out;
+> four live-only defects were fixed._
+>
+> _Status update (M0056, ADR-039): **invoice detail + payments are now LIVE and the
+> connector is production-ready.** The invoice DETAIL is **not a separate page** — the
+> CRM embeds it per invoice row as a **base64 JSON `data-details` attribute** on the
+> `<tr>`, carrying a `payments` array (amount, `date_paid`, `prn` reference,
+> `payment_type`, `received_by` = "badge# Name", remarks, `deleted_at`/
+> `request_for_deletion`) and an `items` services array. Reading it is **READ-ONLY** —
+> the data is already in the list DOM; the connector never clicks the `data-clickable`
+> cells or navigates. `invoiceDetail` is **enabled** (still v1, additive). Live run:
+> 10 invoices → 15 payments parsed, 41 ms, 0 non-completed. **USER semantics (verified,
+> not guessed):** in the DATA THE CONNECTOR RETRIEVES, staff appear only as a
+> "badge# Name" string (treatment USER column, invoice/payment `received_by`), with a
+> separate numeric `*_id`; **no role label is present in any retrieved record**. So
+> receptionist / aesthetician / IV-therapist / salesperson cannot be distinguished from
+> the audit read path (that lives in the CRM's staff directory / report filters, not in
+> the records) — `performedBy.role` stays **`"unknown"`**, which is correct, not a gap.
+> Per-payment `status` (completed / cancellation-requested / cancelled) is the one new
+> field, additive + optional (ADR-039). Timings: login ~7.7s cold, search ~1.9s,
+> profile+tabs ~2.4s, full record ~15.7s (≈5.6s on session reuse), logout ~6.8s._
 
 The first `CRMConnector` implementation drives a real browser. Design decisions:
 
