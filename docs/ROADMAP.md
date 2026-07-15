@@ -44,6 +44,7 @@
 | **M0057**        | In-app browser UI verification (errata + method)    | ✅ **Complete** (2026-07-15; login proven working, visibility-throttle root-caused, dashboards/reports render real data) |
 | **M0058**        | Activity-log windowed-filter timeout fix            | ✅ **Complete** (2026-07-15; slow ~15s filtered query vs 10s action default — per-click timeout override, live-verified) |
 | **M0059**        | OCR schema v2 (per-patient full) + prompt v002      | ✅ **Complete** (2026-07-15; 189 real logbooks → services+amounts/meds/points/cash-bank schema, ADR-040, ground-truth CLI; §11.1 closed) |
+| **M0060**        | OCR extraction + calibration harness                | ✅ **Complete** (2026-07-15; ocr:extract/ocr:score over the corpus, field accuracy + confidence calibration; mock-verified, live needs API key) |
 | **M2**           | Audit module core                                   | Next                         |
 | **M3**           | AI-assisted auditing                                | Planned                      |
 | **M4**           | Reports & administration                            | Planned                      |

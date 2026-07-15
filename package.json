@@ -26,7 +26,9 @@
     "validate:crm": "tsx --conditions=react-server scripts/live-validation.ts",
     "audit:package": "tsx --conditions=react-server scripts/build-audit-package.ts",
     "audit:pipeline": "tsx --conditions=react-server scripts/run-audit-pipeline.ts",
-    "ocr:gt:check": "tsx --conditions=react-server scripts/validate-ground-truth.ts"
+    "ocr:gt:check": "tsx --conditions=react-server scripts/validate-ground-truth.ts",
+    "ocr:extract": "tsx --conditions=react-server scripts/ocr-extract.ts",
+    "ocr:score": "tsx --conditions=react-server scripts/ocr-score.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
