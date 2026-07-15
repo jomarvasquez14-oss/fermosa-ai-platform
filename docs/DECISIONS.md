@@ -830,6 +830,41 @@ history snapshots can be large (retrieval windows bound this; OCR integration sh
 default to windowed captures), and orchestrator wiring (`CRM_RETRIEVAL` stage →
 `createSnapshot`) is deliberately deferred to the pipeline-integration sprint.
 
+## ADR-038: Scheduled audit pipeline as a cadence layer over per-submission orchestration
+
+**Status:** Accepted _(2026-07-14, M0054)_
+
+**Context:** The platform already has a per-submission `AuditOrchestrator` (AuditJob /
+AuditJobStage, stages OCR → HUMAN_REVIEW → CRM_RETRIEVAL → MATCHING → REPORT). What was
+missing is AUTOMATION: running audits on a cadence (nightly/weekly/monthly) without a
+human clicking start, plus a durable record of each automated run. OCR is still blocked,
+so the pipeline must run the stages that CAN run today and leave a clean seam for OCR to
+plug into later — without a second orchestrator that duplicates the first.
+
+**Decision:** (1) Two additive models — `AuditSchedule` (cadence MANUAL/NIGHTLY/WEEKLY/
+MONTHLY, enabled, optional branch scope, last/next run timestamps) and `PipelineRun`
+(status, trigger, optional schedule/submission links, **per-stage results as JSON**,
+error, timings). Both use `SetNull` on their optional links so run history outlives the
+schedule or submission it referenced. (2) The **stage list is DATA**
+(`services/pipeline/pipeline-stages.ts`): an ordered array with `enabled` flags. The
+runner (`audit-pipeline.ts`) walks it, runs each enabled stage's injected runner, records
+the result, and **stops loudly at the first failure** — it never hard-codes stage names
+in branches. **OCR is present but `enabled: false`**; the OCR phase flips the flag and
+supplies a runner, changing no control flow. (3) The service layer **composes existing
+services** — `createRuleEngine`, `findingService`, `getReport`, `snapshotService` — as
+default stage runners; it does not reimplement the audit. Runners are injectable, so the
+runner core is unit-tested without a DB or CRM. (4) Cadence math (`schedule.ts`) is pure
+and timezone-naive (operates on the `now` it is given). (5) The CLI
+(`scripts/run-audit-pipeline.ts`, `pnpm audit:pipeline`) is invoked by an OS scheduler or
+CI cron — **no long-running daemon** is added.
+
+**Consequences:** Audits can run unattended and every run is auditable (PipelineRun rows).
+The OCR stage is wired-but-off, so enabling OCR is a config + one-runner change, not a
+re-architecture. Pre-OCR honesty: with no confirmed logbook entries yet, the RULES stage
+evaluates the real engine over an empty entry set (0 findings — correct), and SNAPSHOT/
+DATASET report current state rather than fabricating work; the delivered value is the
+wiring, not new audit findings. The existing `AuditOrchestrator` is untouched.
+
 ## ADR-037: Additive patient-enumeration on the CRM connector seam for dataset sweeps
 
 **Status:** Accepted _(2026-07-14, M0050)_

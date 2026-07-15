@@ -24,7 +24,8 @@
     "db:studio": "prisma studio",
     "dataset:crm": "tsx --conditions=react-server scripts/generate-crm-dataset.ts",
     "validate:crm": "tsx --conditions=react-server scripts/live-validation.ts",
-    "audit:package": "tsx --conditions=react-server scripts/build-audit-package.ts"
+    "audit:package": "tsx --conditions=react-server scripts/build-audit-package.ts",
+    "audit:pipeline": "tsx --conditions=react-server scripts/run-audit-pipeline.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
