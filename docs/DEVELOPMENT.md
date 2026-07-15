@@ -63,3 +63,24 @@ Never log secrets, passwords, or tokens. Context objects should carry IDs, not e
 - Use design tokens (`bg-background`, `text-muted-foreground`, ...) — never hard-coded
   colors — so dark mode keeps working.
 - Mobile-first: test at 375px (phone), 768px (tablet), and desktop widths.
+
+## Verifying the UI in the in-app browser
+
+The preview (in-app) browser paint-throttles pages whose pane is backgrounded
+behind the chat — `document.visibilityState` reads `"hidden"` even for the
+active tab. Tools that need the compositor (`computer` screenshot/click/type,
+`read_page`) then time out or return empty, while DOM-level tools keep working.
+Verify UI like this:
+
+- **Log in:** seeded accounts (password `ChangeMe@123`): `admin@fermosa.local`
+  (SUPER_ADMIN), `auditor@fermosa.local` (AUDITOR), `manager@fermosa.local`
+  (BRANCH_MANAGER, Makati). The Auth.js credentials flow works in-browser.
+- **Check content (works even when backgrounded):** `navigate` to the route,
+  then `get_page_text` for rendered content and `javascript_tool` for computed
+  styles / element state.
+- **Screenshots:** focus/open the Browser pane first — that flips the page to
+  `visible` and paint resumes. No tool flips pane-level visibility.
+
+This is an environment limitation of the preview browser, not an app or auth
+defect (see `docs/MILESTONES/M0057.md`). The Playwright CRM connector is
+unaffected — it runs its own headless Chromium.
