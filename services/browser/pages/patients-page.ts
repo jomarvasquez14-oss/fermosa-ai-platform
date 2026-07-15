@@ -29,6 +29,14 @@ export interface PatientRow {
 const RESULT_COLUMNS = ["NAME", "EMAIL", "MOBILE", "TYPE", "LAST VISIT"] as const;
 const CID_PATTERN = /\/clients\/(\d+)/;
 
+/**
+ * The live CRM's search/filter runs a slow server-side query — observed to
+ * exceed the driver's 10s action default, so the submit click (which auto-waits
+ * on the results navigation) times out. Same class as the activity-log filter
+ * (M0058); give the search the same longer budget.
+ */
+const SEARCH_TIMEOUT_MS = 30_000;
+
 export class PatientsPage extends BasePage {
   readonly pageId = "patient-search" as const;
 
@@ -37,8 +45,8 @@ export class PatientsPage extends BasePage {
     await this.assertFingerprint();
     await this.driver.fill(this.sel("nameInput"), input.name ?? "");
     await this.driver.fill(this.sel("mobileInput"), input.mobile ?? "");
-    await this.driver.click(this.sel("submit"));
-    await this.driver.waitFor(this.sel("resultsTable"));
+    await this.driver.click(this.sel("submit"), { timeoutMs: SEARCH_TIMEOUT_MS });
+    await this.driver.waitFor(this.sel("resultsTable"), { timeoutMs: SEARCH_TIMEOUT_MS });
     return this.readResults();
   }
 
@@ -47,15 +55,15 @@ export class PatientsPage extends BasePage {
     await this.assertFingerprint();
     await this.driver.fill(this.sel("lastVisitFromInput"), from);
     await this.driver.fill(this.sel("lastVisitToInput"), to);
-    await this.driver.click(this.sel("submit"));
-    await this.driver.waitFor(this.sel("resultsTable"));
+    await this.driver.click(this.sel("submit"), { timeoutMs: SEARCH_TIMEOUT_MS });
+    await this.driver.waitFor(this.sel("resultsTable"), { timeoutMs: SEARCH_TIMEOUT_MS });
     return this.readResults();
   }
 
   /** The CRM's own Reset control — back to an unfiltered list. */
   async clearFilters(): Promise<void> {
-    await this.driver.click(this.sel("resetLink"));
-    await this.driver.waitFor(this.sel("resultsTable"));
+    await this.driver.click(this.sel("resetLink"), { timeoutMs: SEARCH_TIMEOUT_MS });
+    await this.driver.waitFor(this.sel("resultsTable"), { timeoutMs: SEARCH_TIMEOUT_MS });
   }
 
   async readResults(): Promise<PatientRow[]> {
@@ -86,8 +94,8 @@ export class PatientsPage extends BasePage {
   }
 
   async nextPage(): Promise<PatientRow[]> {
-    await this.driver.click(this.sel("paginationNext"));
-    await this.driver.waitFor(this.sel("resultsTable"));
+    await this.driver.click(this.sel("paginationNext"), { timeoutMs: SEARCH_TIMEOUT_MS });
+    await this.driver.waitFor(this.sel("resultsTable"), { timeoutMs: SEARCH_TIMEOUT_MS });
     return this.readResults();
   }
 

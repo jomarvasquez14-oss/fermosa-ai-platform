@@ -117,7 +117,10 @@ export const SELECTOR_MAP_V1: SelectorMap = {
         mobileInput: "input[name=search_mobile]",
         lastVisitFromInput: "input[name=last_dental_visit_from]",
         lastVisitToInput: "input[name=last_dental_visit_to]",
-        submit: "input[type=submit]#search",
+        // The CRM redesigned this control from <input type=submit> to
+        // <button type=submit id=search> (observed live 2026-07-15; the old
+        // input#search selector matched nothing, so the search click hung).
+        submit: "button[type=submit]#search",
         resetLink: "a.btn[href$='/clients']",
         resultsTable: "table[data-plugin=dataTable]",
         resultRows: "table[data-plugin=dataTable] tbody tr",

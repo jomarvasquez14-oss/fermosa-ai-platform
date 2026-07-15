@@ -105,6 +105,27 @@ describe("PatientsPage", () => {
     const page = new PatientsPage(driver, registry);
     await expect(page.search({ name: "Santos" })).rejects.toMatchObject({ code: "CRM_LAYOUT" });
   });
+
+  it("the search submit targets a <button> (M0063: CRM redesigned input→button)", () => {
+    // The CRM redesign changed the submit control from <input type=submit> to
+    // <button type=submit id=search>; the old input#search selector matched
+    // nothing live, so the search click hung (diagnosed 2026-07-15). Guard
+    // against regressing to the input form.
+    expect(registry.selector("patient-search", "submit")).toContain("button");
+  });
+
+  it("submits the search with a navigation-sized click timeout (M0063)", async () => {
+    // The live CRM's search runs a slow server-side query; the submit click
+    // auto-waits on that navigation, so it must override the 10s action default
+    // (same class as the M0058 activity-log filter).
+    await driver.goto("/clients");
+    const page = new PatientsPage(driver, registry);
+    await page.search({ name: "Santos" });
+    const submitClick = driver.clicks.find(
+      (click) => click.selector === registry.selector("patient-search", "submit")
+    );
+    expect(submitClick?.options?.timeoutMs).toBeGreaterThan(10_000);
+  });
 });
 
 describe("PatientProfilePage", () => {

@@ -47,6 +47,7 @@
 | **M0060**        | OCR extraction + calibration harness                | ✅ **Complete** (2026-07-15; ocr:extract/ocr:score over the corpus, field accuracy + confidence calibration; mock-verified, live needs API key) |
 | **M0061**        | Structured logbook intake (Excel/CSV)               | ✅ **Complete** (2026-07-15; typed input path behind the same ConfirmedEntry seam — CSV templates + parser + intake:template/intake:check, no API/PII blocker, ADR-041) |
 | **M0062**        | Single-workbook (xlsx) intake                       | ✅ **Complete** (2026-07-15; two sheets combined into one .xlsx with tabs via exceljs; intake:check reads the workbook directly, CSV still supported, ADR-042) |
+| **M0063**        | CRM redesign re-validation                          | ✅ **Complete** (2026-07-15; live CRM redesigned — only the patient-search submit drifted input→button, fixed; profile/invoice/payments/activity all re-verified green; "broken profile read" was date-window misdiagnosis) |
 | **M2**           | Audit module core                                   | Next                         |
 | **M3**           | AI-assisted auditing                                | Planned                      |
 | **M4**           | Reports & administration                            | Planned                      |
