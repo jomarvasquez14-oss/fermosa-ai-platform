@@ -328,4 +328,18 @@ describe("ActivityLogPage", () => {
     const entries = await page.readFiltered({ keyword: "Santos, Maria" }, 5);
     expect(entries).toHaveLength(1);
   });
+
+  it("submits the filter with a navigation-sized click timeout (M0058)", async () => {
+    // The CRM's filtered activity query runs ~15s live; the submit's click
+    // auto-waits on that navigation and the 10s action default made it time out
+    // (diagnosed 2026-07-15). Guard the fix: the Apply click must override the
+    // default with a navigation-sized budget.
+    await driver.goto("/activity-logs");
+    const page = new ActivityLogPage(driver, registry);
+    await page.readFiltered({ keyword: "Santos", from: "2026-01-01T00:00", to: "2026-07-14T23:59" }, 5);
+    const applyClick = driver.clicks.find(
+      (click) => click.selector === registry.selector("activity-log", "applyButton")
+    );
+    expect(applyClick?.options?.timeoutMs).toBeGreaterThan(10_000);
+  });
 });

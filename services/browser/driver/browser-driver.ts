@@ -48,6 +48,16 @@ export interface WaitForOptions {
   timeoutMs?: number;
 }
 
+export interface ClickOptions {
+  /**
+   * Overrides the driver's default action timeout for THIS click. Needed when
+   * the click triggers a slow navigation the click auto-waits on — e.g. the
+   * activity-log filter submit, whose server-side query runs ~15s live and so
+   * exceeds the 10s action default (see ActivityLogPage.applyFilter).
+   */
+  timeoutMs?: number;
+}
+
 export interface DownloadResult {
   /** Local filesystem path of the completed download. */
   path: string;
@@ -68,7 +78,7 @@ export interface BrowserDriver {
   currentUrl(): Promise<string>;
 
   // -- element actions --------------------------------------------------------
-  click(selector: string): Promise<void>;
+  click(selector: string, options?: ClickOptions): Promise<void>;
   fill(selector: string, value: string): Promise<void>;
   /** Select an option by its `value` attribute. */
   select(selector: string, value: string): Promise<void>;

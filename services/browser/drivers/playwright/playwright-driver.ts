@@ -3,6 +3,7 @@ import { logger } from "@/lib/logger";
 import type {
   BrowserDriver,
   BrowserLocator,
+  ClickOptions,
   DownloadResult,
   TableData,
   WaitForOptions,
@@ -147,8 +148,8 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
 
   // ---- element actions --------------------------------------------------------
 
-  async click(selector: string): Promise<void> {
-    await this.action(selector, (locator) => locator.click());
+  async click(selector: string, options?: ClickOptions): Promise<void> {
+    await this.action(selector, (locator) => locator.click({ timeout: options?.timeoutMs }));
   }
 
   async fill(selector: string, value: string): Promise<void> {

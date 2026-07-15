@@ -47,8 +47,15 @@ export class ActivityLogPage extends BasePage {
     await this.driver.fill(this.sel("fromInput"), filter.from ?? "");
     await this.driver.fill(this.sel("toInput"), filter.to ?? "");
     await this.driver.fill(this.sel("keywordInput"), filter.keyword ?? "");
-    await this.driver.click(this.sel("applyButton"));
-    await this.driver.waitFor(this.sel("table"));
+    // Applying the filter submits a GET form; the CRM's filtered activity query
+    // is SLOW server-side — measured ~15s live for a keyword + date-range
+    // window (2026-07-15). Playwright's click auto-waits on that navigation, so
+    // the driver's 10s default action timeout makes it report a spurious
+    // timeout even though the filter applied. Give this click (and the results
+    // wait) a navigation-sized budget instead.
+    const filterTimeoutMs = 30_000;
+    await this.driver.click(this.sel("applyButton"), { timeoutMs: filterTimeoutMs });
+    await this.driver.waitFor(this.sel("table"), { timeoutMs: filterTimeoutMs });
   }
 
   async readEntries(): Promise<RawActivityEntry[]> {

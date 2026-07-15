@@ -1,6 +1,7 @@
 import type {
   BrowserDriver,
   BrowserLocator,
+  ClickOptions,
   DownloadResult,
   TableCell,
   TableData,
@@ -297,6 +298,8 @@ export class MockBrowserDriver implements BrowserDriver {
   private failNavigations = 0;
   private brokenPaths = new Set<string>();
   private readonly formValues = new Map<string, string>();
+  /** Every click, with its options — lets tests assert call-site intent. */
+  readonly clicks: { selector: string; options?: ClickOptions }[] = [];
   private readonly historyStack: string[] = [];
 
   private readonly scriptedTables = new Map<string, TableData[]>();
@@ -427,7 +430,10 @@ export class MockBrowserDriver implements BrowserDriver {
     this.formValues.set(selector, value);
   }
 
-  async click(selector: string): Promise<void> {
+  async click(selector: string, options?: ClickOptions): Promise<void> {
+    // The mock resolves instantly, so ClickOptions (e.g. timeoutMs) don't affect
+    // behavior — but they're recorded so tests can assert call-site intent.
+    this.clicks.push({ selector, options });
     const login = V1.login.elements;
     const dashboard = V1.dashboard.elements;
 

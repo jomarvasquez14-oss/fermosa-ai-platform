@@ -171,6 +171,12 @@ history), **Invoice list** (`/invoice`, filtered), **Activity Logs**
 (`/activity-logs` + filters). Dashboard/reports/masterlist are out of scope for v1
 retrieval (reports may later serve reconciliation cross-checks).
 
+> **Performance (M0058, live 2026-07-15):** the activity-log **filtered** query
+> is slow server-side — ~15 s for a keyword + date-range window — so a full
+> **windowed** `fetchPatientRecord` runs ~18 s+. The filter submit's click is
+> given a navigation-sized timeout (the 10 s action default was too short and
+> caused a spurious failure). Windowed/scheduled audits must budget for this.
+
 ## 5. Browser Automation Strategy (real connector shipped in M0041; live runs gated)
 
 > _Status (M0041, ADR-033): the full stack now exists — `PlaywrightBrowserDriver`
