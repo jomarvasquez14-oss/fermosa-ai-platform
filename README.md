@@ -28,8 +28,18 @@ deferred pending a capture). Then three subsystems, all behind the existing seam
 read-only, resumable **CRM dataset generator** (M0045, `pnpm dataset:crm`), an **audit
 report generator** producing HTML/PDF-ready/JSON reports reproducibly from stored
 evidence (M0046, `/reports`), and **10 new deterministic rules** in the rule engine
-(M0047). The only remaining gate before a first fully automated audit is the OCR
-sample dataset, an Anthropic API key, and OCR prompt calibration.
+(M0047).
+
+**Pre-OCR v0.9 (v0.9.0-pre-ocr, M0049–M0055):** everything the platform can do before
+OCR. Live validation was **completed** (M0049 — full checklist, four live-only fixes),
+the dataset generator became a **production sweep tool** with real patient enumeration
+and a reproducibility seal (M0050, ADR-037), **reproducible audit packages** were added
+(M0051, `pnpm audit:package`), the rule engine grew to **30 deterministic rules**
+(M0052), **role-scoped dashboards** and **operational analytics** now render from real
+data only (M0053 `/dashboard`, M0055 `/analytics`), and a **scheduled audit pipeline**
+composes the existing services with OCR wired-but-off (M0054, ADR-038,
+`pnpm audit:pipeline`). The only remaining gate before a first fully automated audit is
+the OCR sample dataset, an Anthropic API key, and OCR prompt calibration.
 
 ## Tech Stack
 

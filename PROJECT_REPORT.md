@@ -1,6 +1,6 @@
-# Fermosa AI Platform — Project Report (Phase 5 complete)
+# Fermosa AI Platform — Project Report (Phase 6 complete)
 
-**Date:** 2026-07-14 · **Target version:** v0.8.0-pre-ocr · **Branch:** `feature/crm-browser-connector` · **Prepared for:** senior developer review
+**Date:** 2026-07-14 · **Target version:** v0.9.0-pre-ocr · **Branch:** `feature/crm-browser-connector` · **Prepared for:** senior developer review
 
 ---
 
@@ -12,142 +12,117 @@ existing CRM (read-only), compares the two, and produces reviewable audit findin
 CRM stays the only source of truth — the platform stores immutable audit evidence, never
 a mirror.
 
-**Phase 5 ("Pre-OCR Completion") is done.** It maximized progress on everything that does
-NOT depend on the still-missing OCR dataset:
+**Phase 6 ("Pre-OCR v0.9") is done.** It maximized everything that does NOT depend on the
+still-missing OCR dataset, building on the Phase 5 (v0.8) foundation:
 
-- **M0044 — Live CRM validation:** the Playwright connector was verified against
-  production (login, read-only session reuse, search with correct found/not-found/
-  ambiguous semantics, full schema-valid record retrieval). A live-only login/redirect
-  timing bug was found and fixed. Invoice-detail retrieval remains deferred (no capture).
-- **M0045 — CRM dataset generator:** read-only, resumable, idempotent extraction of CRM
-  data to a reproducible on-disk dataset, behind the connector seam.
-- **M0046 — Audit report generator:** reproducible HTML / PDF-ready HTML / JSON reports
-  built only from stored evidence (no live CRM after a snapshot exists).
-- **M0047 — Rule engine expansion:** 10 new deterministic rules; 5 requested rules were
-  reused from existing ones and documented rather than duplicated.
+- **M0049 — Complete live CRM validation.** Ran the full checklist against production via
+  a new read-only probe (`pnpm validate:crm`); found, fixed, and re-verified **four
+  live-only defects** (health-check auth ordering, live empty-table phrasing, the
+  JS-collapsed activity Filters panel, and phantom empty-activity parsing). Invoice-detail
+  stays disabled with live evidence (no row-level trigger exists). Also hardened
+  `vitest.config` so a nested worktree's `node_modules` can't poison the suite.
+- **M0050 — Production CRM dataset builder.** Added an **optional `listPatients`
+  enumeration** to the connector seam (ADR-037) and real sweep modes
+  (patient / branch / date-range / entire-clinic) with **derived** branch/date filtering, a
+  `snapshot.json` reproducibility seal, `--verify` hash checks, progress+ETA, and duplicate
+  detection. Supersedes M0045's null-stamp stopgap.
+- **M0051 — Pilot audit dataset.** `services/audit-package/` composes the read-only
+  evidence for a branch/audit-date into a **reproducible, self-verifying** on-disk package
+  (`pnpm audit:package`): per-file + package hashes, an auto-run verification report.
+- **M0052 — Rule engine expansion II.** Seven new deterministic rules (repeated
+  cancellations/deletions/invoice-corrections, large billing adjustments, activity-density
+  bursts, cross-branch inconsistencies, invoice chronology) — **30 rules total**, five
+  requested categories mapped to existing rules rather than duplicated, <300 ms / 1000
+  records.
+- **M0053 — Audit dashboards.** Role-scoped auditor / branch / admin views from **real
+  data only**, with dependency-free (SVG/CSS) charts; the old placeholder mock data was
+  deleted.
+- **M0054 — Scheduled audit pipeline.** A cadence layer (ADR-038) over the existing
+  orchestration: `AuditSchedule` + `PipelineRun`, a **stage list that is data** with **OCR
+  present-but-disabled**, composing the real rule/finding/report services
+  (`pnpm audit:pipeline`).
+- **M0055 — Operational analytics.** Trends over **stored snapshots only** (never the live
+  CRM): branches, treatment frequency, revenue, package completion, staff activity,
+  edit-activity, branch comparison — `/analytics`, role-gated.
 
-**M0048 (OCR ground-truth tool) was deliberately deferred** to be designed against real
-OCR output rather than assumptions.
-
-**Verification:** full `pnpm release-check` (typecheck, lint, tests, production build)
-green on the whole branch. Every milestone was independently task-reviewed and fixed; a
-final whole-branch review (see §6) returned **READY-WITH-MINORS** with all invariants
-confirmed.
+**Verification:** full `pnpm release-check` (typecheck, lint, tests, production build) green
+on the whole branch (357 tests). The scheduled pipeline was additionally exercised
+**end-to-end against the real database** (all seven stages, OCR skipped, a `PipelineRun`
+persisted).
 
 ## 2. What a reviewer should look at first
 
-The three new subsystems are independent and small: `services/crm/dataset/`,
-`services/report/`, `services/rules/rules-extended.ts`. Each sits behind an existing seam
-and touches no frozen contract. The load-bearing guarantees to check are read-only CRM
-access (§5.1), report reproducibility-from-evidence (§5.3), and rule determinism (§5.4).
+Seven independent subsystems, each behind an existing seam and touching no frozen contract:
+`services/crm/dataset/` (now sweep-capable), `services/audit-package/`, `services/rules/
+rules-extended-2.ts`, `services/dashboard/`, `services/pipeline/`, `services/analytics/`,
+plus the connector-seam `listPatients` addition. The load-bearing guarantees to check are:
+CRM stays read-only phase-wide, reproducibility seals hold (dataset + audit package),
+rules stay deterministic and fast, dashboards/analytics read real data only, and the
+pipeline's OCR seam is genuinely wired-but-off.
 
 ## 3. Architecture (unchanged foundations)
 
 Next.js 15 App Router + React 19 · TypeScript strict · Tailwind v4 + shadcn/ui ·
 PostgreSQL via Prisma · Auth.js v5 · Zod at boundaries · Vitest · pnpm. Layering
 `app/ → features/ → services/ → lib/`. Capability seams (strategy + factory) for AI, CRM,
-storage, audit; contracts freeze on first implementation, changes need an ADR (36 ADRs).
-Phase 5 introduced **no new architecture and no new ADR** — the report and dataset
-subsystems are derived artifacts, the rule additions are additive.
+storage, audit; contracts freeze on first implementation, changes need an ADR.
+**Phase 6 added two ADRs** — ADR-037 (additive `listPatients` enumeration) and ADR-038
+(scheduled pipeline + schedule/run models) — and **one migration** (`AuditSchedule`,
+`PipelineRun`). Everything else is additive: new services behind existing seams, additive
+rule-engine config, no weakened contract, `NormalizedCrmPatientRecord` (ADR-027) untouched.
 
-## 4. Phase 5 commits (on `feature/crm-browser-connector`)
+## 4. Phase 6 commits (on `feature/crm-browser-connector`)
 
-Pre-phase baseline committed first (the completed but uncommitted M0042/M0042A/M0043):
-`a066a3b` (live cockpit + capture-verified selectors), `3f65489` (snapshot engine).
-Then Phase 5:
-
-| Milestone | Commits |
+| Milestone | Commit |
 | --- | --- |
-| M0044 live validation | `97fdec0` (evidence doc) |
-| M0045 dataset generator | `93d040b` impl → `b032765` fixes → `f2f2e37` echo + doc |
-| M0046 report generator | `8ff3491` impl → `4c7716b` doc |
-| M0047 rule expansion | `a344554` impl → `ce9711d` fixes → `8d710ba` doc |
+| M0049 live validation | `3271d19` (+ `1ff8b08` cherry-picked dataset-branch fix) |
+| M0050 dataset builder | `e845b42` |
+| M0051 audit packages | `dd42c47` |
+| M0052 rules II | `6e1d4d1` |
+| M0053 dashboards | `1410899` |
+| M0054 pipeline | `2f605f6` |
+| M0055 analytics | `5b28bfc` |
 
 (CRLF-only churn on v0.6.1-era files was deliberately excluded from every commit.)
 
-## 5. The new subsystems
-
-### 5.1 CRM dataset generator (M0045) — `services/crm/dataset/`
-Sweeps `getCRMConnector()` into `datasets/crm/<id>/{patient,treatments,invoice,activity-log,metadata}.json`
-+ a `manifest.json`. **Read-only** (only `fetchPatientRecord`/`findPatients`). **Resumable
-+ idempotent** (re-running skips patients whose metadata exists; backfills manifest
-provenance). **Failure-isolated + loud** (any per-patient error — connector or filesystem
-— is recorded in `manifest.failures`; the batch continues). Reproducible via a SHA-256
-`snapshotHash` reusing the snapshot engine's `contentHash`. CLI: `pnpm dataset:crm`, which
-announces the active connector at startup so a bare run never silently sweeps the live CRM.
-9 tests.
-
-### 5.2 Live CRM validation (M0044)
-Documented in `docs/MILESTONES/M0044.md`: production login (+ the timing-race fix),
-session reuse, announcement neutralization, all three search outcomes, and full-record
-retrieval returning schema-valid data across profile/treatment/invoice/activity in one
-~26s call. Selector map unchanged (still `crm-selectors/v1` — login verified, no live
-break). Honest remaining unknowns: invoice-detail (blocked on a capture), per-field value
-spot-checks, `performedBy.role` semantics.
-
-### 5.3 Audit report generator (M0046) — `services/report/`
-`buildReportModel` (pure) + `renderReportHtml` (pure, deterministic, self-contained) +
-`getReport` (branch-scoped Prisma reads). Reports are **reproducible from stored evidence
-only** — no live CRM in the path; no `Date.now()` in the renderers; byte-identical output
-for the same input. HTML is **injection-safe** (every value escaped; a `<script>` test
-confirms) with 10 fixed sections. Export route `?format=json|html` (read-only). 14 tests
-(incl. Postgres integration asserting cross-branch `NotFoundError`).
-
-### 5.4 Rule engine expansion (M0047) — `services/rules/rules-extended.ts`
-10 new deterministic rules (invoice-after-treatment, invoice-without-treatment,
-duplicate-invoice, duplicate-treatment, impossible-session-sequence,
-impossible-package-progression, repeated-edits, suspicious-activity-frequency,
-staff-mismatch, package-over-completion), all mapping to existing `FindingCategory`
-values (no migration). 5 requested rules were **reused** from existing ones and
-documented (treatment-without-invoice → `missing-invoice`; deleted/edited-treatment →
-existing; invoice-balance-mismatch → `invoice`; branch-mismatch not implementable —
-invoices carry no branch). Existing `rules.ts` byte-unchanged. The full 23-rule engine
-evaluates 1000 entries in ~80 ms (budget 300 ms). 44 tests.
-
-## 6. Verification & final review
+## 5. Verification & review
 
 - `pnpm release-check` green on the whole branch (typecheck, lint, all tests, production
-  build).
-- Every milestone independently task-reviewed (spec + code quality); fixes applied and
-  re-verified where reviews found issues (M0045: runnable CLI, resumed-run provenance,
-  failure isolation; M0047: deterministic date sort, real-engine registration test).
-- **Final whole-branch review: READY-WITH-MINORS.** Confirmed phase-wide: CRM read-only,
-  seams intact, no frozen contract weakened, reports reproducible, auth consistent, HTML
-  injection-safe/deterministic, build-safe. No Critical or Important findings.
+  build), re-run after every milestone.
+- New tests this phase: dataset builder (24), CLI parsers (×3), audit package (13), rules
+  (18), dashboards (6), pipeline (13), analytics (5) — plus the M0049 browser-layer tests.
+- Live/real-system checks: M0049 live CRM probe (13/13 after fixes); M0054 pipeline
+  end-to-end against the real DB; M0050/M0051 CLIs smoke-tested in mock mode.
+- **Not captured:** the authenticated dashboard/analytics visual render — the seeded
+  sign-in did not submit through the in-app browser (the known server-action hydration
+  flakiness from M0044, an environment limitation). Dashboard/analytics logic is
+  unit-tested; both routes compile in the production build.
 
-## 7. Known follow-ups (minor, non-blocking)
+## 6. Known follow-ups (minor, non-blocking)
 
-1. **Before enabling live dataset sweep modes:** `--mode branch --branch X` stamps every
-   swept patient's metadata with branch X even though the query doesn't filter by branch
-   (dormant with the mock; a tracked task exists to fix before the live sweep path is on).
-2. Severity display order is duplicated in the report HTML and React component (should
-   derive from `lib/findings` `SEVERITY_RANK`).
-3. Report appendix provenance reflects the newest snapshot; timeline renders raw
-   timestamps; a no-op `severityLabel()`; `rules-extended` re-declares small local helpers
-   — all cosmetic/maintainability.
+- The Playwright `listPatients` re-navigates per page (DataTable pagination is a UI
+  control, not a trustworthy URL param), bounded by `maxEnumerationPages` — deep-page
+  sweeps cost more; explicit id lists are preferred for large clinics (documented, ADR-037).
+- Pre-OCR, the pipeline's RULES stage evaluates over an empty entry set (0 findings —
+  correct) and SNAPSHOT/DATASET report state rather than doing work; the delivered value is
+  the wiring and the OCR seam.
+- Analytics staff-role granularity is limited to aesthetician/encoder/unknown by the
+  normalized contract; branch revenue is clinic-wide (invoices carry no branch).
 
-## 8. Product decision surfaced (not decided in-phase)
-
-Branch Managers currently cannot reach `/reports` at all (`reports:view` +
-`ROUTE_ACCESS` are Auditor/Super-Admin only, pre-existing). M0046 scopes BMs correctly at
-the service layer (defense in depth, tested), but whether BMs should have UI access to
-their own branch's reports is a roadmap decision left to the product owner.
-
-## 9. Remaining blockers before a first fully automated audit
+## 7. Remaining blockers before a first fully automated audit
 
 - **The 100-page OCR sample dataset** (the gating external input).
 - **An Anthropic API key** for the OCR provider.
 - **OCR prompt calibration** against ground truth.
 - **A CRM invoice-detail capture** to enable payments parsing (`invoiceDetail` stays off).
-- The live CRM service account is in `.env` today; a dedicated read-only audit account is
-  recommended over a personal login before routine operation.
+- A dedicated read-only audit CRM account is recommended over a personal login before
+  routine operation.
 
-## 10. Branch / release state
+## 8. Branch / release state
 
-All Phase 5 work is committed on `feature/crm-browser-connector` (latest `8d710ba`).
-**Not pushed** (standing rule: push only when the owner asks). Recommended wrap-up:
-tag `v0.8.0-pre-ocr` and branch `feature/ocr-integration` for the OCR phase — pending the
-owner's go-ahead to push.
+All Phase 6 work is committed on `feature/crm-browser-connector` (latest `5b28bfc`).
+Recommended wrap-up: tag **`v0.9.0-pre-ocr`**. **Not pushed** — the standing rule is push
+only when the owner asks.
 
-*This report contains no patient data and no credentials. CRM reference captures and
-generated datasets are git-ignored, local-only.*
+*This report contains no patient data and no credentials. CRM reference captures,
+generated datasets, and audit packages are git-ignored, local-only.*

@@ -84,6 +84,12 @@ adversary.
 | **Branch leaderboard** (compliance trend, 30 days)                       | Who improved, who slipped?      |
 | **OCR auto-accept rate** (fields ≥ 0.95 that survived review)            | Can we trust the machine more?  |
 
+> **Status (v0.9.0-pre-ocr):** the role-scoped dashboards (M0053, `/dashboard`) and
+> operational analytics (M0055, `/analytics`) now render most of these KPIs from **real
+> data only** — compliance/audit scores, open findings by severity, review turnaround,
+> the branch leaderboard, and edit/deletion flags (via the expanded rule engine, M0052).
+> "Estimated money at stake" and "OCR auto-accept rate" await the OCR dataset.
+
 ## How success is measured
 
 **Business outcomes (the ones that matter):**
