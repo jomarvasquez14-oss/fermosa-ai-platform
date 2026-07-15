@@ -1,19 +1,20 @@
 /**
- * intake:template (M0061) — write the blank CSV templates branches fill, a
- * worked example, and plain-language instructions to templates/logbook-intake/.
+ * intake:template (M0061 · workbook M0062) — write the intake templates branches
+ * fill to templates/logbook-intake/.
  *
- * The templates' headers come straight from the intake schema, so they can
- * never drift from what the parser reads. The worked example is SYNTHETIC and
- * illustrative (modeled on a July 9 Makati page) — no real patient data — so it
- * is safe to commit.
+ * Primary deliverable is a single Excel workbook with the two sheets on separate
+ * TABS ("Transactions" + "Daily Summary", plus an "Instructions" tab), because
+ * CSV cannot hold multiple tabs. A blank template workbook and a filled worked
+ * example are written, plus a standalone INSTRUCTIONS.md. The example is
+ * SYNTHETIC (July 9 Makati shape) — no real patient data — so it is safe to commit.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { toCsv } from "@/services/intake/csv";
 import {
   TRANSACTION_HEADERS,
   SUMMARY_HEADERS,
 } from "@/services/intake/logbook-intake-schema";
+import { writeIntakeWorkbook } from "@/services/intake/workbook";
 
 const OUT_DIR = "templates/logbook-intake";
 
@@ -64,14 +65,16 @@ const EXAMPLE_SUMMARY = {
   ledgerCheckedBy: "(signature)",
 } satisfies Partial<Record<(typeof SUMMARY_HEADERS)[number], string>>;
 
-const INSTRUCTIONS = `# How to fill the daily logbook spreadsheet
+const INSTRUCTIONS = `# How to fill the daily logbook workbook
 
-Two files per day, per branch:
+One Excel file per day, per branch: **logbook-intake.xlsx**. It has tabs at the
+bottom:
 
-- **transactions.csv** — one row per client SERVICE line.
-- **daily-summary.csv** — the end-of-day totals (the logbook's second page).
+- **Transactions** — one row per client SERVICE line.
+- **Daily Summary** — the end-of-day totals (the logbook's second page).
+- **Instructions** — these rules, repeated inside the file.
 
-## transactions.csv
+## Transactions tab
 
 Columns: ${TRANSACTION_HEADERS.join(", ")}
 
@@ -87,31 +90,48 @@ Rules:
 4. **Blank = leave empty.** An empty cell means "nothing there", not zero.
 5. **date** as \`YYYY-MM-DD\` (e.g. \`2026-07-09\`). **branch** is the branch name.
 
-## daily-summary.csv
+## Daily Summary tab
 
-A two-column \`field,value\` list. Fill the \`value\` next to each field. Leave a
-value blank if it does not apply that day. Fields: ${SUMMARY_HEADERS.join(", ")}.
+A two-column \`field\` / \`value\` list. Type the value next to each field; leave it
+blank if it does not apply that day. Fields: ${SUMMARY_HEADERS.join(", ")}.
 
-See \`transactions.example.csv\` and \`daily-summary.example.csv\` for a filled sample.
+## Saving
+
+Keep the file as an **Excel Workbook (.xlsx)** — do not split the tabs into
+separate files. Send the whole \`logbook-intake.xlsx\`.
+
+See \`logbook-intake.example.xlsx\` for a filled sample.
 `;
 
-function main(): void {
+const instructionsGrid: string[][] = INSTRUCTIONS.split("\n").map((line) => [line]);
+
+async function main(): Promise<void> {
   mkdirSync(OUT_DIR, { recursive: true });
 
-  const files: [string, string][] = [
-    ["transactions.template.csv", toCsv([[...TRANSACTION_HEADERS]])],
-    ["daily-summary.template.csv", toCsv(summaryGrid({}))],
-    ["transactions.example.csv", toCsv(txGrid(EXAMPLE_TX))],
-    ["daily-summary.example.csv", toCsv(summaryGrid(EXAMPLE_SUMMARY))],
-    ["INSTRUCTIONS.md", INSTRUCTIONS],
-  ];
+  const templatePath = path.join(OUT_DIR, "logbook-intake.template.xlsx");
+  const examplePath = path.join(OUT_DIR, "logbook-intake.example.xlsx");
+  const instructionsPath = path.join(OUT_DIR, "INSTRUCTIONS.md");
 
-  for (const [name, content] of files) {
-    const dest = path.join(OUT_DIR, name);
-    writeFileSync(dest, content, "utf8");
-    console.log(`wrote ${dest}`);
-  }
-  console.log(`\nDone. Templates in ${OUT_DIR}/ — hand transactions/daily-summary CSVs to branches.`);
+  await writeIntakeWorkbook(templatePath, {
+    transactions: [[...TRANSACTION_HEADERS]],
+    summary: summaryGrid({}),
+    instructions: instructionsGrid,
+  });
+  await writeIntakeWorkbook(examplePath, {
+    transactions: txGrid(EXAMPLE_TX),
+    summary: summaryGrid(EXAMPLE_SUMMARY),
+    instructions: instructionsGrid,
+  });
+  writeFileSync(instructionsPath, INSTRUCTIONS, "utf8");
+
+  for (const dest of [templatePath, examplePath, instructionsPath]) console.log(`wrote ${dest}`);
+  console.log(
+    `\nDone. Hand branches ${path.join(OUT_DIR, "logbook-intake.template.xlsx")} (two tabs). ` +
+      `Check a filled one with: pnpm intake:check <file.xlsx>`
+  );
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

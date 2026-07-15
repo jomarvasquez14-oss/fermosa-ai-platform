@@ -1058,3 +1058,28 @@ original photo — so this decision does not retire OCR, it reprioritizes it. Co
 intake paths to keep behind one seam, and the summary/richer fields are captured but not
 yet acted on, pending the deferred financial-tally milestone. No change to the CRM
 connector (still read-only), the rule engine, or any frozen contract.
+
+## ADR-042: xlsx workbook as the intake carrier (adds `exceljs`)
+
+**Status:** Accepted _(2026-07-15, M0062)_ · refines ADR-041
+
+**Context:** ADR-041 shipped typed intake as two CSV files and noted "no new runtime
+dependency" as a consequence. Branches asked for a single file with the two sheets on
+separate **tabs** — the natural way to hand over one day's logbook. Sheet tabs are an
+Excel-workbook feature; CSV is single-sheet by definition. Producing a tabbed template
+AND reading a filled workbook back both require the `.xlsx` format.
+
+**Decision:** Adopt a single `.xlsx` **workbook** as the primary intake carrier, with
+"Transactions", "Daily Summary", and "Instructions" tabs, and add **`exceljs`** to read
+and write it. Confine the dependency to one module (`services/intake/workbook.ts`); it
+converts each sheet to/from a `string[][]` grid. The parser is refactored to grid-based
+cores (`parseTransactionsGrid` / `parseSummaryGrid`) so a workbook sheet and a CSV run the
+**identical** logic — `.csv` input stays fully supported. This **supersedes the "no new
+dependency" property of ADR-041** while leaving ADR-041's seam, schema, down-map, and
+deferrals intact.
+
+**Consequences:** Branches hand over one file with tabs; `intake:check` accepts it
+directly (no manual CSV export). Cost: one runtime dependency (`exceljs`, ~pure JS, no
+build script) and binary template files in the repo (small, synthetic — no PII). The CSV
+path remains as a dependency-free fallback. No change to the CRM connector, rule engine,
+intake schema, or any frozen contract.

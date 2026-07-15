@@ -87,7 +87,11 @@ function indexHeaders(
  * lines accumulate across the group's rows.
  */
 export function parseTransactions(csv: string): TransactionsParseResult {
-  const grid = parseCsv(csv);
+  return parseTransactionsGrid(parseCsv(csv));
+}
+
+/** As `parseTransactions`, but from an already-read grid (a CSV or an xlsx sheet). */
+export function parseTransactionsGrid(grid: string[][]): TransactionsParseResult {
   const issues: string[] = [];
   if (grid.length === 0) {
     return { entries: [], rows: [], issues: ["File is empty."] };
@@ -218,7 +222,11 @@ export function parseTransactions(csv: string): TransactionsParseResult {
  * Unknown fields are reported; missing known fields default to null.
  */
 export function parseSummary(csv: string): SummaryParseResult {
-  const grid = parseCsv(csv);
+  return parseSummaryGrid(parseCsv(csv));
+}
+
+/** As `parseSummary`, but from an already-read grid (a CSV or an xlsx sheet). */
+export function parseSummaryGrid(grid: string[][]): SummaryParseResult {
   const issues: string[] = [];
   const known = new Set<string>(SUMMARY_HEADERS);
   const collected: Record<string, string | null> = {};
