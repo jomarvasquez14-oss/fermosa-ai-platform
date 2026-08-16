@@ -19,12 +19,22 @@ export class LocalStorageProvider implements StorageProvider {
     this.root = path.resolve(rootDir);
   }
 
-  /** Resolve a key inside the root, rejecting traversal attempts. */
+  /**
+   * Resolve a key inside the root, rejecting traversal attempts.
+   *
+   * Keys are a platform-independent, forward-slash-separated namespace (see
+   * the `StorageProvider` contract). A backslash is a path separator on
+   * Windows but an ordinary filename character on POSIX, so passing the raw
+   * key to `path.resolve()` would make the traversal verdict host-dependent:
+   * `..\..\windows\system32` escapes the root on Windows yet lands inside it
+   * as one oddly-named file on Linux. Normalize separators first so every
+   * host reaches the same verdict for the same key.
+   */
   private resolveKey(key: string): string {
     if (!key || key.includes("\0")) {
       throw new AppError("STORAGE_INVALID_KEY", "Storage key is empty or malformed.");
     }
-    const resolved = path.resolve(this.root, key);
+    const resolved = path.resolve(this.root, key.replace(/\\/g, "/"));
     if (resolved !== this.root && !resolved.startsWith(this.root + path.sep)) {
       throw new AppError("STORAGE_INVALID_KEY", `Storage key escapes the storage root: ${key}`);
     }
