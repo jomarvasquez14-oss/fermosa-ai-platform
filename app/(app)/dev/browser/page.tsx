@@ -16,7 +16,7 @@ export default async function BrowserDevPage() {
     <>
       <PageHeader
         title="Browser Framework Dev"
-        description="Internal developer tool: exercise the browser-automation framework (session, navigation, selector registry, failure recovery) against a mock CRM. No live CRM access exists."
+        description="Internal developer tool: framework drills (session, navigation, selector registry, failure recovery) run on a mock CRM; the connector cockpit runs through getCRMConnector() and drives the live CRM when CRM_CONNECTOR=playwright is configured."
       />
       <BrowserDevScreen initialState={state} />
     </>

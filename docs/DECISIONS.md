@@ -704,3 +704,382 @@ navigation history, selector registry table, and armed failure simulations.
 driver + confirming v1 selectors against the login capture. Recovery behavior is
 already tested and demonstrable, so selector maintenance and session flakiness —
 the two chronic costs of scraping — have their playbooks before the first real run.
+
+## ADR-032: CI pipeline and vendor-free telemetry baseline
+
+**Status:** Accepted _(2026-07-14, Version 0.6.1)_
+
+**Context:** Quality gates ran manually since M1 (a documented carry-over), and the
+orchestrator/rule-engine stack shipped with only ad-hoc log lines — no way to answer
+"how long did that stage take, and which run was that?" once real OCR/CRM volumes
+arrive. Both needed fixing before integration work, without buying a monitoring vendor.
+
+**Decision:** (1) **GitHub Actions CI** (`.github/workflows/ci.yml`) on every push and
+PR: pnpm-cached install → typecheck → lint → migrations against a Postgres 16 service
+container → the full test suite (integration tests run for real, not mocked out) with
+a step-summary table → production build; fail-fast, per-ref concurrency cancellation.
+Local parity via `pnpm verify` / `pnpm release-check` — the same commands, so green
+means the same thing everywhere. (2) **`lib/telemetry/`** — interfaces only:
+structured `Span`s emitted to `TelemetrySink`s (default sink logs through the existing
+transport-based logger; sinks are isolated so observability can never break the
+observed workflow), correlation ids via AsyncLocalStorage (node-only, never imported
+from edge code), `trace`/`startSpan` helpers, and coarse `ErrorClass` derived from
+AppError codes. Instrumentation lives where the work is: orchestrator stage spans
+(correlated by job id), job totals, rule-engine evaluation timing.
+
+**Consequences:** PROJECT_RULES 16's "until CI exists" clause is retired — merges are
+machine-gated. A vendor adapter (OTel/Datadog/Axiom) later implements one interface
+and touches zero instrumented code. Costs: CI runs the DB suite (~1 min of container
+time per push), and AsyncLocalStorage confines telemetry to the Node runtime — an
+accepted, documented boundary.
+
+## ADR-033: Playwright CRM connector behind the frozen driver and connector seams
+
+**Status:** Accepted _(2026-07-14, M0041)_
+
+**Context:** Sprint 3.9 shipped the browser framework with a mock driver only; the
+matching pipeline still had no path to real CRM facts. The reference captures
+(docs/crm-reference/, local-only) provided real markup for every discovery page except
+login, making genuine selectors possible before any live contact. The CRMConnector
+contract (ADR-027) is frozen and the mock connector is load-bearing for every
+downstream consumer.
+
+**Decision:** (1) **Playwright Chromium** implements the Sprint 3.9 `BrowserDriver`
+seam — the interface grew (launch/select/waitFor/locator/table/tables/screenshot/
+download/evaluate/goBack/reload) but Playwright itself exists ONLY in
+`services/browser/drivers/playwright/` (lazy import, `serverExternalPackages`). In-page
+extraction code travels as source strings, never compiled functions — transpiler
+helpers (`__name`) do not exist inside the page. (2) **Selector map v1 became real**:
+selectors derived from the captures, per-page fingerprints plus per-table column-header
+checks; unconfirmed surfaces (invoice detail trigger) sit behind explicit **capability
+flags** instead of guessed selectors, and each page documents a `neverInteract` list
+enforcing the read-only contract at the map level. (3) **`PlaywrightCRMConnector`**
+(`services/crm/connectors/playwright/`) implements the unchanged contract under the
+existing `browser-automation` kind; `CRM_CONNECTOR=playwright` is an env alias only.
+Credentials come exclusively from `CRM_URL`/`CRM_USERNAME`/`CRM_PASSWORD`, validated at
+first use. Search maps to what the CRM actually offers (name/mobile server-side, cid by
+direct navigation, email refined client-side); a dob-only query is honestly
+`not-found` — the mock's dob filter has no live counterpart. (4) Every record is
+Zod-validated at the boundary; unparseable money/dates fail as `CRM_LAYOUT`, never as
+silently wrong data.
+
+**Consequences:** Matching (Sprint 4) can develop against the mock and flip to live by
+changing one env var once the service account exists. Costs and gates: the login page
+remains uncaptured (provisional selectors fail loudly on first live run — the capture
+is still the gating input), invoice payments stay `null` until the detail trigger is
+confirmed (capability off), and the Playwright driver itself is verified by a
+local-page smoke test rather than unit tests — live verification is an explicit
+follow-up blocked on credentials.
+
+## ADR-034: Live CRM validation is a supervised, credential-gated activity with a purpose-built cockpit
+
+**Status:** Accepted _(2026-07-14, M0042)_
+
+**Context:** M0042's objective was to validate the Playwright connector against the
+live CRM. At execution time `.env` contained no `CRM_URL`/`CRM_USERNAME`/`CRM_PASSWORD`
+— the read-only service account does not exist yet. Validating selectors, parsers, and
+session behavior without live access is not possible honestly; changing the selector
+map without observing the live DOM would be guesswork.
+
+**Decision:** (1) Live validation is **gated, not simulated**: Phases 1–5 of M0042 are
+recorded as blocked rather than approximated, the selector registry stays at
+`crm-selectors/v1` untouched, and no "fixes" were invented. (2) `/dev/browser` becomes
+the **supervised validation cockpit**: credential-presence badges (never values),
+connector health, patient search, open-patient, and normalized-JSON preview — all
+through `getCRMConnector()`, so the identical UI drives the mock today and the live
+CRM the moment `CRM_CONNECTOR=playwright` plus credentials exist. First live runs are
+expected to be watched (`CRM_BROWSER_HEADLESS=false`). (3) Validation evidence, when
+produced, is recorded in MILESTONES/M0042.md against the M0041 checklist.
+
+**Consequences:** No false confidence: the map version only moves when live DOM
+evidence justifies it. The cockpit removes the last tooling excuse — once credentials
+land, validation is a button-clicking session, not an engineering sprint. Cost: M0042
+ships "incomplete" by design, and the service account remains the single gating input
+for everything live.
+
+## ADR-035: Immutable audit evidence snapshots — the platform never becomes a CRM
+
+**Status:** Accepted _(2026-07-14, M0043)_
+
+**Context:** Audits compare logbooks against CRM facts, but the CRM is live: records
+get edited, paid, and deleted after the audit date (sometimes that IS the finding).
+Findings must stay defensible after the CRM moves on. The tempting shape — mirroring
+patients/treatments into platform tables — would slowly turn the platform into a
+second CRM with all the sync problems that implies. DOMAIN_MODEL's future
+`CrmComparison` already anticipated a "records JSON snapshot" for reproducibility.
+
+**Decision:** (1) One table, `AuditEvidenceSnapshot`, linked ONLY to
+`AuditSubmission` (aggregate-owned, cascade); `crmPatientId` is a provenance string,
+deliberately NOT a foreign key — **no Patient/Treatment tables exist, ever**. (2) The
+row stores the full `NormalizedCrmPatientRecord` (ADR-027, unchanged) as jsonb plus
+provenance (connector kind, selector version, retrievedAt, retrieval window, stored-
+format version) and a **SHA-256 content hash over a canonical sorted-key stringify**
+(jsonb does not preserve key order). (3) Rows are **append-only**: the service exposes
+no update/delete; loading re-validates the Zod schema (`EVIDENCE_INVALID`) and the
+hash (`EVIDENCE_INTEGRITY`) — corrupt evidence fails loudly, including in list views.
+(4) **Two hashes**: `contentHash` (full record, tamper seal) vs `evidenceHash`
+(business sections only) so snapshot-vs-live comparison ignores `retrievedAt` churn.
+(5) `compareSnapshotMetadata` reports metadata-level drift only — interpreting drift
+into findings remains the rule engine's job. (6) Retrieval always goes through
+`getCRMConnector()`; the engine is connector-agnostic.
+
+**Consequences:** Every audit is reproducible from its own evidence, and post-audit
+CRM edits become detectable rather than history-rewriting. The future `CrmComparison`
+entity, if it ships, references snapshots instead of embedding records. Costs: full-
+history snapshots can be large (retrieval windows bound this; OCR integration should
+default to windowed captures), and orchestrator wiring (`CRM_RETRIEVAL` stage →
+`createSnapshot`) is deliberately deferred to the pipeline-integration sprint.
+
+## ADR-039: Invoice detail from the embedded `data-details` attribute + additive payment status
+
+**Status:** Accepted _(2026-07-14, M0056)_
+
+**Context:** Invoice DETAIL (services + full payment history) was the connector's last
+gap — `capabilities.invoiceDetail` stayed off because no capture showed a detail page or
+its trigger (M0044/M0049 found no row-level link; the cells opened a JS modal we refuse
+to click). Live investigation (M0056) revealed the CRM embeds the ENTIRE invoice detail
+in each list row as a **base64-encoded JSON `data-details` attribute** on the `<tr>` —
+including a structured `payments` array (amount, date, `prn` reference, `payment_type`,
+`received_by` "badge# Name", remarks, `deleted_at`/`request_for_deletion`) and an `items`
+services array. The data is already in the list DOM: reading it needs no click and no
+navigation.
+
+**Decision:** (1) Parse invoice detail from the embedded `data-details` attribute, READ-
+ONLY, via `InvoiceTab.readInvoiceDetails` (`locator(rows).attrs("data-details")` → base64
+→ JSON), keyed by `ref_no`. There is no detail page; the earlier guessed `/invoice/{ref}`
+does not exist. (2) **Enable `invoiceDetail`** — this is additive and non-breaking
+(a new element read, no existing selector changed), so it stays **`crm-selectors/v1`**
+per ADR-036; no v3. The `data-clickable` cells and mutating controls (New Invoice,
+request_for_deletion) stay in `neverInteract` as a tripwire. (3) **Add one ADDITIVE,
+OPTIONAL field** to the normalized payment sub-object: `status`
+(`completed | cancellation-requested | cancelled`, derived from `deleted_at` /
+`request_for_deletion`) so cancelled/reversed payments are surfaced honestly rather than
+dropped. Optional so evidence snapshots sealed before M0056 (no per-payment status) still
+validate on load — the frozen `NormalizedCrmPatientRecord` (ADR-027) is EXTENDED, never
+weakened, and no consumer (reports, rules) is required to read it.
+
+**Consequences:** The connector now reproduces the full invoice a human auditor sees —
+services and per-payment history with method, receiver, reference, and cancellation
+status — at **~0 added cost** (the data rides along in the list DOM; measured parse
+41 ms). Payments are populated for real (15 across 10 invoices in the live run). USER
+semantics were resolved as a by-product (below/CRM_DISCOVERY): staff appear as
+"badge# Name" with a separate `*_id`; the CRM exposes **no role** anywhere, confirming
+`performedBy.role = "unknown"` is correct, not a gap. Cost: newly-retrieved records carry
+the extra `status`, so their `contentHash`/`evidenceHash` differ from pre-M0056 records
+(expected — they are new retrievals).
+
+## ADR-038: Scheduled audit pipeline as a cadence layer over per-submission orchestration
+
+**Status:** Accepted _(2026-07-14, M0054)_
+
+**Context:** The platform already has a per-submission `AuditOrchestrator` (AuditJob /
+AuditJobStage, stages OCR → HUMAN_REVIEW → CRM_RETRIEVAL → MATCHING → REPORT). What was
+missing is AUTOMATION: running audits on a cadence (nightly/weekly/monthly) without a
+human clicking start, plus a durable record of each automated run. OCR is still blocked,
+so the pipeline must run the stages that CAN run today and leave a clean seam for OCR to
+plug into later — without a second orchestrator that duplicates the first.
+
+**Decision:** (1) Two additive models — `AuditSchedule` (cadence MANUAL/NIGHTLY/WEEKLY/
+MONTHLY, enabled, optional branch scope, last/next run timestamps) and `PipelineRun`
+(status, trigger, optional schedule/submission links, **per-stage results as JSON**,
+error, timings). Both use `SetNull` on their optional links so run history outlives the
+schedule or submission it referenced. (2) The **stage list is DATA**
+(`services/pipeline/pipeline-stages.ts`): an ordered array with `enabled` flags. The
+runner (`audit-pipeline.ts`) walks it, runs each enabled stage's injected runner, records
+the result, and **stops loudly at the first failure** — it never hard-codes stage names
+in branches. **OCR is present but `enabled: false`**; the OCR phase flips the flag and
+supplies a runner, changing no control flow. (3) The service layer **composes existing
+services** — `createRuleEngine`, `findingService`, `getReport`, `snapshotService` — as
+default stage runners; it does not reimplement the audit. Runners are injectable, so the
+runner core is unit-tested without a DB or CRM. (4) Cadence math (`schedule.ts`) is pure
+and timezone-naive (operates on the `now` it is given). (5) The CLI
+(`scripts/run-audit-pipeline.ts`, `pnpm audit:pipeline`) is invoked by an OS scheduler or
+CI cron — **no long-running daemon** is added.
+
+**Consequences:** Audits can run unattended and every run is auditable (PipelineRun rows).
+The OCR stage is wired-but-off, so enabling OCR is a config + one-runner change, not a
+re-architecture. Pre-OCR honesty: with no confirmed logbook entries yet, the RULES stage
+evaluates the real engine over an empty entry set (0 findings — correct), and SNAPSHOT/
+DATASET report current state rather than fabricating work; the delivered value is the
+wiring, not new audit findings. The existing `AuditOrchestrator` is untouched.
+
+## ADR-037: Additive patient-enumeration on the CRM connector seam for dataset sweeps
+
+**Status:** Accepted _(2026-07-14, M0050)_
+
+**Context:** The dataset builder (M0045) supports sweep modes (branch / date-range /
+entire-clinic), but the `CRMConnector` seam (ADR-027) exposes only `findPatients`
+(a search that returns `not-found` for an empty query) and `fetchPatientRecord`.
+M0045 faked sweeps with `findPatients({})`, which the mock returns as `not-found`
+and which carries no branch/date fields — so sweeps were structural-only and a live
+`--branch` flag was a false provenance claim (fixed defensively: metadata.branch
+nulled + a loud manifest warning). To sweep the live clinic for real, the seam needs
+a way to LIST patients, distinct from searching for one.
+
+**Decision:** (1) Add an **optional** method to `CRMConnector`:
+`listPatients?(page: number, options?): Promise<PatientPage>` where
+`PatientPage = { patients: PatientSummary[]; page: number; hasNextPage: boolean }`.
+**Optional, not required** — this is a non-weakening additive extension: connectors
+that cannot or should not enumerate (a future read-scoped `api` connector, say) omit
+it, and callers must handle its absence by failing loudly, never silently. (2) It is
+a **deliberate listing, not a search**: no `ambiguous`/`not-found` outcome semantics,
+one bounded page per call (the caller drives pagination under its own page budget),
+READ-ONLY like everything else on the seam. (3) **Branch and date-range are DERIVED,
+not server-side filters.** The live CRM patient list cannot filter by branch or
+treatment date (CRM_DISCOVERY §1), so sweep modes enumerate patients, retrieve each
+record (windowed for date-range), and include a patient only when the record's own
+contents match — branch membership = "a treatment was performed at that branch";
+date membership = "has in-window treatments/invoices/activity". `metadata.branch` is
+therefore stamped **only when genuinely derived from the retrieved record**,
+superseding M0045's null-stamp stopgap. (4) The mock connector enumerates its
+fixtures (fixed page size) so every mode is exercised deterministically offline; the
+Playwright connector reads the patients-management table page by page, bounded by a
+`maxEnumerationPages` budget, never a full unbounded crawl in one call.
+
+**Consequences:** Sweeps become real and reproducible while the seam stays read-only
+and no existing contract weakens. The cost is honest and documented: because branch/
+date are derived, an "entire branch" sweep must enumerate and retrieve the whole
+clinic to filter — expensive for large clinics, where an explicit patient-id list is
+preferred; the builder's progress + ETA reporting and resumability make the full
+sweep tolerable and restartable. `NormalizedCrmPatientRecord` (ADR-027) is untouched.
+
+## ADR-036: Capture-replay verification and read-only interstitial neutralization
+
+**Status:** Accepted _(2026-07-14, M0042A)_
+
+**Context:** Live validation stayed credential-blocked, but real artifacts arrived:
+a login-page capture (the M0041 blind spot), fresh Complete-saves of the dashboard
+and patients pages with their JS bundles, and — critically — `announcements.js`,
+which revealed that the CRM's announcement modals are re-polled every 5 seconds on
+every authenticated page and can only be "properly" closed by an attestation that
+POSTs mark-as-read. Mock-driver tests could never catch bugs that live in the real
+DOM's shape.
+
+**Decision:** (1) **Capture-replay is a standing verification layer**:
+`docs/crm-reference/verify-captures.mts` (local-only) drives the real
+PlaywrightBrowserDriver against offline file:// copies of the captures and executes
+the actual page objects/parsers. It immediately caught three real bugs — hidden
+bookkeeping inputs corrupting cell values (`treatment_record_id` shares the DATE
+cell), instant fingerprint probes racing the CRM's CSS-hidden-until-JS tables, and
+select2 permanently hiding native selects used as fingerprints. Fixes: cell
+extraction skips `[type=hidden]`; `assertFingerprint` waits (10s) for visibility;
+the activity fingerprint uses a plain input. (2) **Announcements are neutralized,
+never dismissed**: clicking the CRM's close button is a WRITE (mark-as-read with
+read-time metrics / checklist completion), so automation removes the modal nodes
+client-side (which also defeats the 5s re-poll), after login and after every
+navigation; the mark-as-read controls are `neverInteract`. (3) **v1 was patched in
+place** — corrections are non-breaking (same structure, same page objects);
+`invoiceDetail` stays off because no artifact shows the detail view or its trigger.
+Every page entry now records its `verification` level, surfaced in `/dev/browser`.
+
+**Consequences:** Selector confidence is now evidence-graded instead of binary, and
+re-verification after any capture or selector change is one command. The read-only
+contract now provably covers the interstitials (announcements stay unread for real
+staff — a deliberate, documented trade-off). Costs: the harness's first run fetched
+static assets from the live site before offline-stripping was added (no auth, no
+data sent — now prevented), and replay cannot verify AJAX-populated states (the
+invoice tab's populated DOM remains a live-gated unknown).
+
+## ADR-040: OCR extraction schema v2 — "per-patient full", derived from real logbooks
+
+**Status:** Accepted _(2026-07-15, M0059)_
+
+**Context:** OCR_ARCHITECTURE §11.1 held the top pre-OCR risk: the logbook page
+schema was assumed (v1 = patient/treatment/therapist/time), with the instruction to
+"get real photos before writing prompt v001." 189 real branch logbook photos then
+arrived. They are far richer than the assumption: each patient row records SERVICES
+WITH AMOUNTS, staff, time in/out, a session marker, cash/bank split, meds bought,
+and points (BP/OP/NP); the page also carries a daily financial rollup. M0056 had
+already unlocked the CRM's invoice payments/amounts, making two-sided amount
+reconciliation possible for the first time.
+
+**Decision:** Evolve the canonical OCR schema (`services/ai/ocr-schema.ts`) to
+**schemaVersion 2, "per-patient full"**: per-entry `patientName, staff, timeIn,
+timeOut, sessionNo, cash, bank` (each an `ExtractedField`), `services[]` and
+`meds[]` as arrays of `{ name, amount }`, and `points{ bp, op, np }`; plus a
+page-level `pageType` (`transaction | summary | mixed`) so summary-only pages
+validate with zero entries. The v1 shape is retired (no persisted OcrResult ever
+referenced it — the OCR pipeline never ran live). Prompt
+`logbook-extraction/v002` (registered, non-draft) replaces the v1 draft with the
+real columns; v001 stays frozen. Ground truth gets a **bare-value mirror** schema
+(`ground-truth-schema.ts`, no confidence) plus a validator CLI (`ocr:gt:check`).
+The **daily financial rollup is deferred** to a later schemaVersion. Existing
+consumers are kept whole by DOWN-MAPPING at their boundary rather than expanding
+them: the matching-executor maps v2 → the unchanged `ConfirmedEntry` (primary
+service → treatment, staff → therapist, timeIn → time), and the OCR review kit
+reviews the v2 scalar fields; wiring amounts/meds/points into the CRM comparison
+rules and the review UI is an explicit follow-on.
+
+**Consequences:** The prompt and schema now match reality, so the first live
+extraction is meaningful and OCR_ARCHITECTURE §11.1 is closed. The audit's core
+value — reconciling logbook amounts against CRM payments — is now representable end
+to end, pending the follow-on that consumes the richer fields. Cost: the schema
+change rippled through every OCR consumer (mock, playground, review kit, matching),
+all updated in lockstep; the down-map means the richer fields are captured and
+calibrated (M0060) before they change any finding, which is the safe order. The
+daily-rollup omission means branch-level financial cross-checks wait for a v3 schema.
+
+## ADR-041: Structured logbook intake (Excel/CSV) as a first-class input alongside OCR
+
+**Status:** Accepted _(2026-07-15, M0061)_
+
+**Context:** The only planned path from a paper logbook into the platform was OCR:
+photograph the handwritten page, have a vision model read it. That path is real but
+carries three costs — an Anthropic API key + a no-retention/DPA sign-off (patient PII),
+unproven handwriting accuracy, and pages that are hard to read even for a human. The
+owner asked whether branches could instead submit the transaction data **already typed**
+(Excel/CSV). For the data the audit actually reconciles against the CRM, typed input is
+~100% accurate, needs no AI call at all (we read the columns), and removes the API/PII
+blocker outright. The platform was already built around a swappable input seam:
+everything after the reading step consumes `ConfirmedEntry[]` (`services/rules/types.ts`)
+and is indifferent to whether entries came from OCR review or a spreadsheet.
+
+**Decision:** Add a **typed intake path** parallel to OCR, behind the same
+`ConfirmedEntry` seam. A single Zod schema (`services/intake/logbook-intake-schema.ts`)
+is the source of truth for BOTH the CSV template headers AND the parser, so they cannot
+drift. CSV is the interchange (dependency-free; Excel reads/writes it natively) with an
+in-repo quoted-CSV reader (`services/intake/csv.ts`) — **no new runtime dependency**. The
+parser (`logbook-intake.ts`) groups rows sharing `(date, branch, lineNumber)` into one
+client (mirroring the paper layout where a client spans several service lines) and
+**down-maps to `ConfirmedEntry` using the exact convention ADR-040 established** (primary
+service → treatment, staff → therapist, timeIn → time); the richer `StructuredEntry`
+(all services/meds with amounts, cash/bank, points) is retained for the later financial
+tally. The daily summary is parsed into a typed object and **stored/echoed only** —
+reconciling its totals against CRM sums is deferred (same boundary as ADR-040's rollup
+deferral). This milestone ships the templates, parser, and two CLIs (`intake:template`,
+`intake:check`); the web upload UI and making a spreadsheet a first-class live
+`AuditSubmission` source are an explicit follow-on.
+
+**Consequences:** Transaction reconciliation can now run end to end with no API key, no
+network, and no PII leaving the building — the fastest path to a working audit. The paper
+logbook remains available as contemporaneous **evidence** (a typed sheet alone is
+easy to doctor), with OCR reserved as an occasional spot-check of typed data against the
+original photo — so this decision does not retire OCR, it reprioritizes it. Cost: two
+intake paths to keep behind one seam, and the summary/richer fields are captured but not
+yet acted on, pending the deferred financial-tally milestone. No change to the CRM
+connector (still read-only), the rule engine, or any frozen contract.
+
+## ADR-042: xlsx workbook as the intake carrier (adds `exceljs`)
+
+**Status:** Accepted _(2026-07-15, M0062)_ · refines ADR-041
+
+**Context:** ADR-041 shipped typed intake as two CSV files and noted "no new runtime
+dependency" as a consequence. Branches asked for a single file with the two sheets on
+separate **tabs** — the natural way to hand over one day's logbook. Sheet tabs are an
+Excel-workbook feature; CSV is single-sheet by definition. Producing a tabbed template
+AND reading a filled workbook back both require the `.xlsx` format.
+
+**Decision:** Adopt a single `.xlsx` **workbook** as the primary intake carrier, with
+"Transactions", "Daily Summary", and "Instructions" tabs, and add **`exceljs`** to read
+and write it. Confine the dependency to one module (`services/intake/workbook.ts`); it
+converts each sheet to/from a `string[][]` grid. The parser is refactored to grid-based
+cores (`parseTransactionsGrid` / `parseSummaryGrid`) so a workbook sheet and a CSV run the
+**identical** logic — `.csv` input stays fully supported. This **supersedes the "no new
+dependency" property of ADR-041** while leaving ADR-041's seam, schema, down-map, and
+deferrals intact.
+
+**Consequences:** Branches hand over one file with tabs; `intake:check` accepts it
+directly (no manual CSV export). Cost: one runtime dependency (`exceljs`, ~pure JS, no
+build script) and binary template files in the repo (small, synthetic — no PII). The CSV
+path remains as a dependency-free fallback. No change to the CRM connector, rule engine,
+intake schema, or any frozen contract.

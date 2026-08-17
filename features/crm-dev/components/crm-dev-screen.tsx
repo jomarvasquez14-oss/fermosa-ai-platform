@@ -74,8 +74,10 @@ export function CrmDevScreen({ catalog }: { catalog: CrmDevCatalog }) {
               Patient lookup
             </CardTitle>
             <CardDescription>
-              Runs through <code className="font-mono text-xs">getCRMConnector()</code> — currently
-              the mock. Nothing touches the live CRM.
+              Runs through <code className="font-mono text-xs">getCRMConnector()</code> — the
+              connector <code className="font-mono text-xs">CRM_CONNECTOR</code> selects (mock by
+              default; the LIVE CRM when set to <code className="font-mono text-xs">playwright</code>
+              ). The fixture directory below only exists on the mock.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">

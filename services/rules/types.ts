@@ -78,6 +78,20 @@ export interface RuleEngineConfig {
   severityWeights: Record<"INFO" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL", number>;
   /** Per-rule overrides: disable or re-weight without code changes. */
   rules: Record<string, { enabled?: boolean; weight?: number }>;
+  /** Minimum "updated" activity events on one patient before repeated-edits fires. */
+  repeatedEditsThreshold: number;
+  /** Maximum activity events on one patient before suspicious-activity-frequency fires. */
+  activityFrequencyThreshold: number;
+  /** Minimum cancellation events on one patient before repeated-cancellations fires (M0052). */
+  repeatedCancellationsThreshold: number;
+  /** Minimum deletion events on one patient before repeated-deletions fires (M0052). */
+  repeatedDeletionsThreshold: number;
+  /** Minimum invoice/payment money-edit events before repeated-invoice-corrections fires (M0052). */
+  repeatedInvoiceCorrectionsThreshold: number;
+  /** Peso delta on a single edited money field before large-billing-adjustment fires (M0052). */
+  largeBillingAdjustmentAmount: number;
+  /** Activity events within a single minute before unusual-activity-density fires (M0052). */
+  activityBurstThreshold: number;
 }
 
 export const DEFAULT_RULE_CONFIG: RuleEngineConfig = {
@@ -85,6 +99,13 @@ export const DEFAULT_RULE_CONFIG: RuleEngineConfig = {
   nameSimilarityThreshold: 0.82,
   severityWeights: { INFO: 0, LOW: 1, MEDIUM: 3, HIGH: 7, CRITICAL: 15 },
   rules: {},
+  repeatedEditsThreshold: 3,
+  activityFrequencyThreshold: 10,
+  repeatedCancellationsThreshold: 2,
+  repeatedDeletionsThreshold: 2,
+  repeatedInvoiceCorrectionsThreshold: 2,
+  largeBillingAdjustmentAmount: 5000,
+  activityBurstThreshold: 5,
 };
 
 export interface EvaluationScores {

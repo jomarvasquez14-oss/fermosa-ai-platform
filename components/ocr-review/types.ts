@@ -1,13 +1,27 @@
 /** Review-state types for the OCR review kit (Sprint 3.3). */
 
-export const REVIEW_FIELD_KEYS = ["patientName", "treatment", "therapist", "time"] as const;
+// The reviewable SCALAR fields of an OCR entry (schema v2, M0059). The array
+// fields (services, meds) and nested points are not reviewed through this
+// per-field kit yet — a follow-on, same boundary as the CRM comparison rules.
+export const REVIEW_FIELD_KEYS = [
+  "patientName",
+  "staff",
+  "timeIn",
+  "timeOut",
+  "sessionNo",
+  "cash",
+  "bank",
+] as const;
 export type ReviewFieldKey = (typeof REVIEW_FIELD_KEYS)[number];
 
 export const REVIEW_FIELD_LABELS: Record<ReviewFieldKey, string> = {
   patientName: "Patient",
-  treatment: "Treatment",
-  therapist: "Therapist",
-  time: "Time",
+  staff: "Staff",
+  timeIn: "Time in",
+  timeOut: "Time out",
+  sessionNo: "Session #",
+  cash: "Cash",
+  bank: "Bank",
 };
 
 /**

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { appEvents } from "@/lib/events";
 import { logger } from "@/lib/logger";
+import { startSpan } from "@/lib/telemetry";
 import { getAIProvider } from "@/services/ai";
 import { getCRMConnector } from "@/services/crm";
 import { findingService } from "@/services/finding-service";
@@ -39,18 +40,23 @@ export const matchingExecutor: StageExecutor = {
       if (image.status !== "STORED") continue;
       const result = await provider.extractLogbook({
         image: { data: new Uint8Array(image.fileSizeBytes ?? 1024), mimeType: "image/png" },
-        promptVersion: "logbook-extraction/v001",
+        promptVersion: "logbook-extraction/v002",
         model: "mock-messy",
       });
       for (const entry of result.extraction?.entries ?? []) {
+        // OCR schema v2 (M0059) is "per-patient full"; the CRM comparison still
+        // consumes the four ConfirmedEntry facts, so down-map here — primary
+        // service → treatment, staff → therapist, timeIn → time. Wiring the
+        // richer fields (amounts/meds/points) into the rule engine is a
+        // follow-on milestone, deliberately out of scope for the schema change.
         entries.push({
           imageId: image.id,
           pageNumber: index + 1,
           lineNumber: entry.lineNumber,
           patientName: entry.patientName.value,
-          treatment: entry.treatment.value,
-          therapist: entry.therapist.value,
-          time: entry.time.value,
+          treatment: entry.services[0]?.name.value ?? null,
+          therapist: entry.staff.value,
+          time: entry.timeIn.value,
         });
       }
     }
@@ -96,6 +102,15 @@ export const matchingExecutor: StageExecutor = {
       resolutions,
       crmRecords: [...recordsById.values()],
     });
+    // Rule-execution timing span (4.0B) — the engine reports its own duration.
+    startSpan("rules.evaluate", {
+      submissionId: submission.id,
+      entries: entries.length,
+      rulesRun: report.results.length,
+      findings: report.findings.length,
+      riskScore: report.scores.riskScore,
+      engineMs: Math.round(report.durationMs * 100) / 100,
+    }).end();
 
     const persisted = await findingService.createForSubmission(
       submission.id,

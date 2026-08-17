@@ -6,29 +6,53 @@
 
 ## Summary
 
-| Milestone       | Theme                                               | Status                       |
-| --------------- | --------------------------------------------------- | ---------------------------- |
-| **M1**          | Platform foundation                                 | ✅ **Complete** (2026-07-12) |
-| **M1.1**        | Architecture refinement (seams, events, AI rules)   | ✅ **Complete** (2026-07-12) |
-| **M2 / 2A.1**   | Audit: upload interface (UI only)                   | ✅ **Complete** (2026-07-13) |
-| **M2 / 2A.1.5** | Audit: domain model review (no new functionality)   | ✅ **Complete** (2026-07-13) |
-| **M2 / 2A.2**   | Audit: submission persistence (first real data)     | ✅ **Complete** (2026-07-13) |
-| **M2 / 2B.0**   | Audit: OCR architecture design (no implementation)  | ✅ **Complete** (2026-07-13) |
-| **M2 / 2B.1**   | CRM Discovery architecture (no implementation)      | ✅ **Complete** (2026-07-13) |
-| **M3 / 3.0**    | AI Playground (mock provider, dev tooling)          | ✅ **Complete** (2026-07-13) |
-| **M3 / 3.1**    | Claude vision provider (playground-only)            | ✅ **Complete** (2026-07-13) |
-| **M3 / 3.2**    | OCR calibration (rig ready — awaiting samples/key)  | ⏸ **Blocked on inputs**      |
-| **M3 / 3.3**    | OCR review interface (mock data)                    | ✅ **Complete** (2026-07-13) |
-| **M3 / 3.4**    | Mock CRM connector + /dev/crm tooling               | ✅ **Complete** (2026-07-13) |
-| **M3 / 3.5**    | Audit findings engine (canonical output, mock UI)   | ✅ **Complete** (2026-07-14) |
-| **M3 / 3.6**    | Audit orchestrator (workflow layer, mock executors) | ✅ **Complete** (2026-07-14) |
-| **M3 / 3.7**    | Rule engine (deterministic, findings out)           | ✅ **Complete** (2026-07-14) |
-| **M3 / 3.9**    | Browser automation framework (mock driver only)     | ✅ **Complete** (2026-07-14) |
-| **M2**          | Audit module core                                   | Next                         |
-| **M3**          | AI-assisted auditing                                | Planned                      |
-| **M4**          | Reports & administration                            | Planned                      |
-| **M5+**         | Adjacent modules (CRM, Inventory, Sales, Marketing) | Future                       |
-| Continuous      | Hardening & operations                              | Ongoing                      |
+| Milestone        | Theme                                               | Status                       |
+| ---------------- | --------------------------------------------------- | ---------------------------- |
+| **M1**           | Platform foundation                                 | ✅ **Complete** (2026-07-12) |
+| **M1.1**         | Architecture refinement (seams, events, AI rules)   | ✅ **Complete** (2026-07-12) |
+| **M2 / 2A.1**    | Audit: upload interface (UI only)                   | ✅ **Complete** (2026-07-13) |
+| **M2 / 2A.1.5**  | Audit: domain model review (no new functionality)   | ✅ **Complete** (2026-07-13) |
+| **M2 / 2A.2**    | Audit: submission persistence (first real data)     | ✅ **Complete** (2026-07-13) |
+| **M2 / 2B.0**    | Audit: OCR architecture design (no implementation)  | ✅ **Complete** (2026-07-13) |
+| **M2 / 2B.1**    | CRM Discovery architecture (no implementation)      | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.0**     | AI Playground (mock provider, dev tooling)          | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.1**     | Claude vision provider (playground-only)            | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.2**     | OCR calibration (rig ready — awaiting samples/key)  | ⏸ **Blocked on inputs**      |
+| **M3 / 3.3**     | OCR review interface (mock data)                    | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.4**     | Mock CRM connector + /dev/crm tooling               | ✅ **Complete** (2026-07-13) |
+| **M3 / 3.5**     | Audit findings engine (canonical output, mock UI)   | ✅ **Complete** (2026-07-14) |
+| **M3 / 3.6**     | Audit orchestrator (workflow layer, mock executors) | ✅ **Complete** (2026-07-14) |
+| **M3 / 3.7**     | Rule engine (deterministic, findings out)           | ✅ **Complete** (2026-07-14) |
+| **M3 / 3.9**     | Browser automation framework (mock driver only)     | ✅ **Complete** (2026-07-14) |
+| **v0.6.1 / 4.0** | Engineering excellence (CI, telemetry, DX, reviews) | ✅ **Complete** (2026-07-14) |
+| **M0041 / 4.1**  | CRM browser connector (Playwright; live-gated)      | ✅ **Complete** (2026-07-14) |
+| **M0042 / 4.2**  | Live CRM validation + `/dev/browser` cockpit        | ✅ **Cockpit complete** (2026-07-14) |
+| **M0043 / 4.3**  | Audit evidence snapshot engine                      | ✅ **Complete** (2026-07-14) |
+| **M0042A / 4.2a**| Connector validated vs real CRM captures            | ✅ **Complete** (2026-07-14) |
+| **M0044 / 4.4**  | Live CRM validation vs production (read path)       | ✅ **Validated** (2026-07-14; invoice-detail deferred) |
+| **M0045 / 4.5**  | CRM dataset generator (read-only, resumable)        | ✅ **Complete** (2026-07-14) |
+| **M0046 / 4.6**  | Audit report generator (HTML/PDF/JSON from evidence)| ✅ **Complete** (2026-07-14) |
+| **M0047 / 4.7**  | Rule engine expansion (10 new deterministic rules)  | ✅ **Complete** (2026-07-14) |
+| **M0049 / 6.1**  | Complete live CRM validation (full checklist)       | ✅ **Complete** (2026-07-14; 4 live-only defects fixed; invoice-detail still gated) |
+| **M0050 / 6.2**  | Production CRM dataset builder (sweep modes, ADR-037)| ✅ **Complete** (2026-07-14; enumeration + derived branch/date, snapshot seal, verify) |
+| **M0051 / 6.3**  | Pilot audit dataset (reproducible audit packages)   | ✅ **Complete** (2026-07-14; per-file + package hashes, self-verifying) |
+| **M0052 / 6.4**  | Rule engine expansion II (7 new rules, 30 total)    | ✅ **Complete** (2026-07-14; deletions/cancellations/billing/density/cross-branch; <300ms/1000) |
+| **M0053 / 6.5**  | Audit dashboards (auditor / branch / admin)         | ✅ **Complete** (2026-07-14; real-data aggregation, dependency-free charts) |
+| **M0054 / 6.6**  | Scheduled audit pipeline (ADR-038; OCR wired-but-off)| ✅ **Complete** (2026-07-14; cadence + PipelineRun, composes existing services) |
+| **M0055 / 6.7**  | Operational analytics (over stored snapshots)       | ✅ **Complete** (2026-07-14; branches/revenue/staff/packages, never live CRM) |
+| **M0056 / 6.8**  | CRM connector production hardening (invoice detail live)| ✅ **Complete** (2026-07-14; invoiceDetail ON via embedded data-details, payments parsed, USER roles resolved, ADR-039) |
+| **M0057**        | In-app browser UI verification (errata + method)    | ✅ **Complete** (2026-07-15; login proven working, visibility-throttle root-caused, dashboards/reports render real data) |
+| **M0058**        | Activity-log windowed-filter timeout fix            | ✅ **Complete** (2026-07-15; slow ~15s filtered query vs 10s action default — per-click timeout override, live-verified) |
+| **M0059**        | OCR schema v2 (per-patient full) + prompt v002      | ✅ **Complete** (2026-07-15; 189 real logbooks → services+amounts/meds/points/cash-bank schema, ADR-040, ground-truth CLI; §11.1 closed) |
+| **M0060**        | OCR extraction + calibration harness                | ✅ **Complete** (2026-07-15; ocr:extract/ocr:score over the corpus, field accuracy + confidence calibration; mock-verified, live needs API key) |
+| **M0061**        | Structured logbook intake (Excel/CSV)               | ✅ **Complete** (2026-07-15; typed input path behind the same ConfirmedEntry seam — CSV templates + parser + intake:template/intake:check, no API/PII blocker, ADR-041) |
+| **M0062**        | Single-workbook (xlsx) intake                       | ✅ **Complete** (2026-07-15; two sheets combined into one .xlsx with tabs via exceljs; intake:check reads the workbook directly, CSV still supported, ADR-042) |
+| **M0063**        | CRM redesign re-validation                          | ✅ **Complete** (2026-07-15; live CRM redesigned — only the patient-search submit drifted input→button, fixed; profile/invoice/payments/activity all re-verified green; "broken profile read" was date-window misdiagnosis) |
+| **M2**           | Audit module core                                   | Next                         |
+| **M3**           | AI-assisted auditing                                | Planned                      |
+| **M4**           | Reports & administration                            | Planned                      |
+| **M5+**          | Adjacent modules (CRM, Inventory, Sales, Marketing) | Future                       |
+| Continuous       | Hardening & operations                              | Ongoing                      |
 
 ---
 
@@ -209,6 +233,61 @@ navigate/retry/recover, typed CRM error taxonomy, and the `/dev/browser` playgro
 Real CRM automation later = one Playwright driver + confirmed selectors. Suite: 154
 tests. **Sprint 3.8 (OCR integration) remains intentionally skipped until real logbook
 samples arrive.**
+
+**Version 0.6.1 — Engineering excellence ✅** (2026-07-14, ADR-032, see
+[MILESTONES/M0040.md](MILESTONES/M0040.md)): GitHub Actions CI (Postgres service
+container, test summary, fail-fast — the M1 carry-over closed), `lib/telemetry/`
+(spans, correlation ids, error classification; orchestrator + rule-engine
+instrumented), `pnpm verify`/`release-check` + [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md),
+and three formal reviews: [PERFORMANCE.md](PERFORMANCE.md),
+[SECURITY.md](SECURITY.md) (one missing page guard found and fixed), and the
+architecture validation report (M0040 §4.0F). Suite: 160 tests.
+
+**M0041 — CRM browser connector ✅** (2026-07-14, ADR-033, see
+[MILESTONES/M0041.md](MILESTONES/M0041.md)): the first REAL `CRMConnector` —
+Playwright Chromium behind the Sprint 3.9 `BrowserDriver` seam (Playwright confined to
+`services/browser/drivers/playwright/`), selector map v1 rebuilt from the reference
+captures with per-table header fingerprints and `neverInteract` lists, seven page
+objects (patients, profile, treatment/invoice tabs, activity log), session manager
+(one login per execution, idle re-verification, reconnect), and
+`PlaywrightCRMConnector` under the unchanged `browser-automation` kind
+(`CRM_CONNECTOR=playwright` alias; credentials via `CRM_URL`/`CRM_USERNAME`/
+`CRM_PASSWORD`). Records are Zod-validated at the boundary; parsing failures are
+`CRM_LAYOUT`, never silent. Suite: 211 tests + a real-Chromium smoke test. **Live
+verification is gated on the read-only service account** (login capture + invoice-
+detail trigger are the remaining selector gaps).
+
+**M0042 — Live CRM validation ⏸ / validation cockpit ✅** (2026-07-14, ADR-034, see
+[MILESTONES/M0042.md](MILESTONES/M0042.md)): the live phases (auth, navigation,
+connector, parser, robustness) **did not run** — `.env` still has no
+`CRM_URL`/`CRM_USERNAME`/`CRM_PASSWORD`, and the selector registry honestly stays at
+v1 untouched. What shipped: `/dev/browser` grew the supervised validation cockpit
+(credential-presence badges, connector health, patient search, open patient,
+normalized-JSON preview — all through `getCRMConnector()`), so the moment credentials
+exist, live validation is a supervised button-clicking session against the M0041
+checklist.
+
+**M0043 — Audit evidence snapshot engine ✅** (2026-07-14, ADR-035, see
+[MILESTONES/M0043.md](MILESTONES/M0043.md)): `AuditEvidenceSnapshot` (one table,
+linked only to `AuditSubmission`; no patient/treatment tables, ever) stores the full
+`NormalizedCrmPatientRecord` as hash-sealed, append-only evidence with provenance
+(connector kind, selector version, retrievedAt, window, format version).
+`services/crm/snapshot/` implements create/load/validate/compare with loud
+`EVIDENCE_INVALID`/`EVIDENCE_INTEGRITY` failures; `/dev/snapshot` is the capture &
+comparison playground. The CRM remains the only source of truth — audits become
+reproducible after it changes. Suite: 233 tests. Orchestrator wiring
+(`CRM_RETRIEVAL` → `createSnapshot`) is deliberately deferred to OCR integration.
+
+**M0042A — Connector validated vs real CRM captures ✅** (2026-07-14, ADR-036, see
+[MILESTONES/M0042A.md](MILESTONES/M0042A.md)): the login capture landed (blind spot
+closed — `input[name=email]`, no captcha) plus fresh dashboard/patients saves and the
+CRM's `announcements.js`. A capture-replay harness (real Chromium driving the real
+page objects against offline file:// captures, 27/27) caught and fixed three real
+bugs: hidden bookkeeping inputs corrupting cell values, instant fingerprints racing
+CSS-hidden-until-JS tables (fingerprints now wait), and select2-hidden native selects
+in fingerprints. Announcement modals are now NEUTRALIZED client-side (their close
+buttons POST mark-as-read — a write automation must never perform). v1 patched in
+place; `invoiceDetail` stays off (detail view still uncaptured). Suite: 234 tests.
 
 Goal: reduce manual review effort on uploaded logbooks.
 

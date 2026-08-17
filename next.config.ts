@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Playwright drives a real Chromium from Node — it must never be bundled
+  // (services/browser/drivers/playwright is its only import site, ADR-033).
+  serverExternalPackages: ["playwright"],
   experimental: {
     serverActions: {
       // Image uploads travel through server actions; logbook images are

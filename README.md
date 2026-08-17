@@ -8,6 +8,39 @@ and Reporting.
 authorization, application shell (dashboard, sidebar, error pages), database schema, and
 logging architecture. No audit business logic yet.
 
+**Since then** (see [docs/ROADMAP.md](docs/ROADMAP.md)): audit submissions with OCR
+review, the findings engine and rule-based audit intelligence (v0.6.x), CI + telemetry,
+and the **CRM browser connector** (M0041) — Playwright Chromium behind the
+`CRMConnector` seam. Select it with `CRM_CONNECTOR=playwright` plus
+`CRM_URL`/`CRM_USERNAME`/`CRM_PASSWORD` (read-only service account; requires
+`pnpm exec playwright install chromium` once). The default remains the mock connector —
+no browser, no live CRM contact. `/dev/browser` is the supervised live-validation
+cockpit (M0042 — live validation itself is still blocked on credentials), and the
+**audit evidence snapshot engine** (M0043, `/dev/snapshot`) seals what the CRM said at
+audit time as immutable, hash-verified evidence — the CRM stays the only source of
+truth; the platform never mirrors it. Selectors are **capture-replay-verified**
+(M0042A): the real page objects execute against real CRM DOM captures in real
+Chromium, with each page's evidence grade shown in `/dev/browser`.
+
+**Pre-OCR completion (v0.8.0-pre-ocr, M0044–M0047):** the connector was **validated
+against the live CRM** (M0044 — read path confirmed in production; invoice-detail
+deferred pending a capture). Then three subsystems, all behind the existing seams: a
+read-only, resumable **CRM dataset generator** (M0045, `pnpm dataset:crm`), an **audit
+report generator** producing HTML/PDF-ready/JSON reports reproducibly from stored
+evidence (M0046, `/reports`), and **10 new deterministic rules** in the rule engine
+(M0047).
+
+**Pre-OCR v0.9 (v0.9.0-pre-ocr, M0049–M0055):** everything the platform can do before
+OCR. Live validation was **completed** (M0049 — full checklist, four live-only fixes),
+the dataset generator became a **production sweep tool** with real patient enumeration
+and a reproducibility seal (M0050, ADR-037), **reproducible audit packages** were added
+(M0051, `pnpm audit:package`), the rule engine grew to **30 deterministic rules**
+(M0052), **role-scoped dashboards** and **operational analytics** now render from real
+data only (M0053 `/dashboard`, M0055 `/analytics`), and a **scheduled audit pipeline**
+composes the existing services with OCR wired-but-off (M0054, ADR-038,
+`pnpm audit:pipeline`). The only remaining gate before a first fully automated audit is
+the OCR sample dataset, an Anthropic API key, and OCR prompt calibration.
+
 ## Tech Stack
 
 | Concern        | Technology                          |
@@ -105,6 +138,9 @@ Permanent project documentation lives in [docs/](docs/):
 | [PROJECT_RULES.md](docs/PROJECT_RULES.md)       | Non-negotiable rules every change must satisfy              |
 | [AI_RULES.md](docs/AI_RULES.md)                 | Binding rules for AI-assisted development                   |
 | [VISION.md](docs/VISION.md)                     | Product vision: v1.0, user journeys, KPIs, success measures |
+| [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)   | Clone → green release-check: setup, workflow, tests, CI     |
+| [PERFORMANCE.md](docs/PERFORMANCE.md)           | Measurements, bottlenecks, and when (not) to optimize       |
+| [SECURITY.md](docs/SECURITY.md)                 | Verified protections, risk register, hardening plan         |
 | [DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md)         | Authoritative business model for the Audit Module           |
 | [DATABASE.md](docs/DATABASE.md)                 | Schema, ERD, and modeling rationale                         |
 | [DEVELOPMENT.md](docs/DEVELOPMENT.md)           | Setup and how-to guides (adding a module, authz cheatsheet) |

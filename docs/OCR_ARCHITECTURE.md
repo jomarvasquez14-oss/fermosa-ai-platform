@@ -115,6 +115,15 @@ services/ai/prompts/
 
 ## 4. OCR JSON Schema
 
+> **Updated to schemaVersion 2 (M0059, ADR-040).** The v1 shape below
+> (patient/treatment/therapist/time) was an assumption; confirmed against 189
+> real logbook photos, the entry is now **"per-patient full"**: `patientName,
+> staff, timeIn, timeOut, sessionNo, cash, bank` plus `services[]`/`meds[]`
+> (each `{name, amount}`) and `points{bp,op,np}`, with a page-level `pageType`
+> (`transaction | summary | mixed`). The canonical Zod is
+> `services/ai/ocr-schema.ts`; the v1 example here is retained for history. The
+> daily financial rollup is deferred to a later schemaVersion.
+
 Per-image structured response (Zod-validated at the provider boundary). Every leaf
 value uses one **field wrapper**, because review UX and partial extraction both hinge
 on per-field metadata:
@@ -277,13 +286,14 @@ backfilled.
 
 ## 11. Risks Before Sprint 2B
 
-1. **The logbook page schema is still assumed, not confirmed** (carried from
-   DOMAIN_MODEL §8.5 — now blocking). §4 guesses patient/treatment/therapist/time.
-   **Get 3–5 real (or realistic redacted) logbook photos before writing prompt v001** —
-   every downstream sprint depends on this shape being right. _Known upcoming change
-   (CRM owner notes, 2026-07-13): logbooks do not carry patient IDs today, but the CRM
-   developer will add them — when that happens, the §4 schema gains a `patientId`
-   field and CRM lookup becomes exact instead of name-based._
+1. **~~The logbook page schema is still assumed, not confirmed~~ — RESOLVED
+   (M0059, 2026-07-15).** 189 real branch logbook photos landed in
+   `ocr-samples/branches/`; the schema is now confirmed and evolved to
+   "per-patient full" (schemaVersion 2, ADR-040) with prompt `v002`. _Known
+   upcoming change (CRM owner notes, 2026-07-13): logbooks do not carry patient
+   IDs today, but the CRM developer will add them — when that happens the schema
+   gains a `patientId` field and CRM lookup becomes exact instead of name-based
+   (which also fixes the M0057 finding that name search returns 100+ candidates)._
 2. **Confidence calibration is unknown** until real reviews accumulate; thresholds in
    §5 are educated defaults. Mitigated by SystemSetting-backed thresholds and persisted
    review verdicts.

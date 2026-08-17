@@ -21,15 +21,15 @@ A server-rendered, session-cookie web application (CSRF `_token` on every form, 
 JSON API surfaced in pages, classic pagination). Key observed facts that shape this
 design:
 
-| Observation                                                                                                                                                                                                   | Design consequence                                                                                                                                                          |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Patient search is a rich POST form (`client_id`, `first_name`/`last_name`/`middle_name`, `dob`, `email`, `mobile_no`, `nickname`, …)                                                                          | Lookup can and should query on multiple identifiers, not just name strings                                                                                                  |
-| Patient list columns: NAME, EMAIL, MOBILE, TYPE, LAST VISIT, CREATED AT; rows link to `/clients/{cid}`                                                                                                        | `cid` is the CRM's stable patient key — capture it once, reuse it forever                                                                                                   |
-| Patient profile carries **Treatment Records** tables: DATE, BRANCH, PROMO CODE, PROCEDURE, INTENSITY SETTINGS, USER — grouped per availed service/package (e.g. "GLUTA DRIP 10 SESSION")                      | The treatment record is session-granular and package-scoped; USER is the person who performed/encoded (§3 open question)                                                    |
-| Invoice list: REF NO, CLIENT NAME, CONTACT NO., SERVICE NAME, AMOUNT, AMOUNT PAID, BALANCE, DATE UPDATED, STATUS (`Paid` observed); per-payment: Mode of Payment, Received By, Payment Reference No           | Invoices are per-service with running balances; payments are separate sub-records                                                                                           |
-| Activity Logs: Log Name, Description, Caused By, Date, Details / **Old Details** (field-level diffs: `service.name`, `amount_paid`, `branch_id`, `status`, `deleted_at`, `synced_at`), filterable, 100+ pages | The CRM keeps an edit history — discovery can detect after-the-fact edits and deletions, which is audit gold; but full-log scraping is impractical → filter by patient/date |
-| Branch masterlists `?bid=1,2,4,5,6`; branch names appear in data ("Fermosa Tejero", "Fermosa Imus", "Fermosa - Manggahan", "Fermosa - Indang")                                                                | CRM branch ids must map to platform `Branch` rows (config table, §4)                                                                                                        |
-| Records can be locked/restored (`/clients/lock-treatment-records/{cid}`) and deletion is request-based (`/invoice?request_for_deletion=true`)                                                                 | Read-only discovery must never touch these — the connector is **read-only by contract**                                                                                     |
+| Observation                                                                                                                                                                                                                                                                                                                   | Design consequence                                                                                                                                                                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Patient search is a rich POST form (`client_id`, `first_name`/`last_name`/`middle_name`, `dob`, `email`, `mobile_no`, `nickname`, …) — **corrected M0041:** that rich POST form is the _Register client_ modal; the actual search is a **GET filter** with `search` (name), `search_mobile`, and a last-visit date range only | Server-side lookup = name/mobile/last-visit; `cid` resolves by direct profile navigation; email refines client-side; **dob is not live-searchable** (connector returns `not-found` for dob-only queries — documented divergence from the mock) |
+| Patient list columns: NAME, EMAIL, MOBILE, TYPE, LAST VISIT, CREATED AT; rows link to `/clients/{cid}`                                                                                                                                                                                                                        | `cid` is the CRM's stable patient key — capture it once, reuse it forever                                                                                                                                                                      |
+| Patient profile carries **Treatment Records** tables: DATE, BRANCH, PROMO CODE, PROCEDURE, INTENSITY SETTINGS, USER — grouped per availed service/package (e.g. "GLUTA DRIP 10 SESSION")                                                                                                                                      | The treatment record is session-granular and package-scoped; USER is the person who performed/encoded (§3 open question)                                                                                                                       |
+| Invoice list: REF NO, CLIENT NAME, CONTACT NO., SERVICE NAME, AMOUNT, AMOUNT PAID, BALANCE, DATE UPDATED, STATUS (`Paid` observed); per-payment: Mode of Payment, Received By, Payment Reference No                                                                                                                           | Invoices are per-service with running balances; payments are separate sub-records                                                                                                                                                              |
+| Activity Logs: Log Name, Description, Caused By, Date, Details / **Old Details** (field-level diffs: `service.name`, `amount_paid`, `branch_id`, `status`, `deleted_at`, `synced_at`), filterable, 100+ pages                                                                                                                 | The CRM keeps an edit history — discovery can detect after-the-fact edits and deletions, which is audit gold; but full-log scraping is impractical → filter by patient/date                                                                    |
+| Branch masterlists `?bid=1,2,4,5,6`; branch names appear in data ("Fermosa Tejero", "Fermosa Imus", "Fermosa - Manggahan", "Fermosa - Indang")                                                                                                                                                                                | CRM branch ids must map to platform `Branch` rows (config table, §4)                                                                                                                                                                           |
+| Records can be locked/restored (`/clients/lock-treatment-records/{cid}`) and deletion is request-based (`/invoice?request_for_deletion=true`)                                                                                                                                                                                 | Read-only discovery must never touch these — the connector is **read-only by contract**                                                                                                                                                        |
 
 ### Additional facts from the reference set (2026-07-13 study of `docs/crm-reference/`)
 
@@ -171,18 +171,76 @@ history), **Invoice list** (`/invoice`, filtered), **Activity Logs**
 (`/activity-logs` + filters). Dashboard/reports/masterlist are out of scope for v1
 retrieval (reports may later serve reconciliation cross-checks).
 
-## 5. Browser Automation Strategy (framework shipped in Sprint 3.9; live automation pending)
+> **Performance (M0058, live 2026-07-15):** the activity-log **filtered** query
+> is slow server-side — ~15 s for a keyword + date-range window — so a full
+> **windowed** `fetchPatientRecord` runs ~18 s+. The filter submit's click is
+> given a navigation-sized timeout (the 10 s action default was too short and
+> caused a spurious failure). Windowed/scheduled audits must budget for this.
 
-> _Status: everything below except the real browser driver exists in
-> `services/browser/` (ADR-031) — versioned selector registry with structural
-> fingerprints, page objects, session lifecycle with auto-reconnect,
-> navigate/retry/recover policies, typed errors, and a `/dev/browser` playground
-> running against a scriptable mock CRM. Live automation still awaits: a Playwright
-> `BrowserDriver` adapter, v1 selectors confirmed against a login capture, and the
-> sanctioned service account (§8)._
+## 5. Browser Automation Strategy (real connector shipped in M0041; live runs gated)
 
-The first `CRMConnector` implementation drives a real browser (Playwright is the
-intended tool per roadmap — not implemented now). Design decisions:
+> _Status (M0041, ADR-033): the full stack now exists — `PlaywrightBrowserDriver`
+> (Chromium, the only Playwright import site), selector map v1 rebuilt from the
+> reference captures with per-table column-header fingerprints and per-page
+> `neverInteract` lists, seven page objects, `BrowserSessionManager` (one login per
+> execution, idle re-verification, one-reconnect recovery), and
+> `PlaywrightCRMConnector` under the `browser-automation` kind
+> (`CRM_CONNECTOR=playwright` alias; credentials via `CRM_URL`/`CRM_USERNAME`/
+> `CRM_PASSWORD`). Still gated before live runs: the sanctioned service account (§8),
+> a login-page capture (its v1 selectors are provisional), and the invoice-detail
+> trigger (payments stay `null` behind the `invoiceDetail` capability flag until
+> confirmed)._
+>
+> _Status update (M0042, ADR-034): live validation was attempted and remains
+> **blocked** — no credentials exist in `.env`; the selector map is still v1,
+> untouched, because nothing live was observed to correct against. `/dev/browser` is
+> now the supervised validation cockpit (credential badges, connector health, patient
+> search, open patient, normalized-JSON preview through `getCRMConnector()`), so the
+> M0041 checklist becomes a button-clicking session the day credentials land. What the
+> CRM record feeds once retrieved: M0043's `AuditEvidenceSnapshot` (hash-sealed,
+> append-only audit evidence — ADR-035)._
+>
+> _Status update (M0042A, ADR-036): the selector map WAS then validated against real
+> captures — login (the §8 blind spot, now closed: `input[name=email]` + password in
+> a Laravel CSRF POST form, NO captcha), fresh dashboard + patients saves, and the
+> CRM's own `announcements.js`. A capture-replay harness
+> (`docs/crm-reference/verify-captures.mts`) executes the real page objects against
+> the captured DOM in real Chromium: 27/27 pass. v1 was patched in place
+> (non-breaking). Three live-behavior facts every future page object must respect:
+> (1) the **announcement modals** (`#instant-announcement-modal`,
+> `#announcement-checklist-modal`) are re-polled every 5s on every authenticated page
+> and their close buttons POST mark-as-read — automation neutralizes the nodes
+> client-side and never clicks them; (2) tables can ship **CSS-hidden until page JS
+> initializes** them — fingerprints must wait, not probe; (3) **select2** replaces
+> filter selects and hides the native element permanently — plain inputs only in
+> fingerprints. Still unverified: the invoice tab's post-AJAX DOM and the invoice
+> DETAIL view (capability off)._
+>
+> _Status update (M0049–M0055): validated against production and hardened — see
+> `docs/MILESTONES/M0049.md`. The connector logs in, searches (found/not-found/
+> ambiguous), retrieves schema-valid records across all page families, and logs out;
+> four live-only defects were fixed._
+>
+> _Status update (M0056, ADR-039): **invoice detail + payments are now LIVE and the
+> connector is production-ready.** The invoice DETAIL is **not a separate page** — the
+> CRM embeds it per invoice row as a **base64 JSON `data-details` attribute** on the
+> `<tr>`, carrying a `payments` array (amount, `date_paid`, `prn` reference,
+> `payment_type`, `received_by` = "badge# Name", remarks, `deleted_at`/
+> `request_for_deletion`) and an `items` services array. Reading it is **READ-ONLY** —
+> the data is already in the list DOM; the connector never clicks the `data-clickable`
+> cells or navigates. `invoiceDetail` is **enabled** (still v1, additive). Live run:
+> 10 invoices → 15 payments parsed, 41 ms, 0 non-completed. **USER semantics (verified,
+> not guessed):** in the DATA THE CONNECTOR RETRIEVES, staff appear only as a
+> "badge# Name" string (treatment USER column, invoice/payment `received_by`), with a
+> separate numeric `*_id`; **no role label is present in any retrieved record**. So
+> receptionist / aesthetician / IV-therapist / salesperson cannot be distinguished from
+> the audit read path (that lives in the CRM's staff directory / report filters, not in
+> the records) — `performedBy.role` stays **`"unknown"`**, which is correct, not a gap.
+> Per-payment `status` (completed / cancellation-requested / cancelled) is the one new
+> field, additive + optional (ADR-039). Timings: login ~7.7s cold, search ~1.9s,
+> profile+tabs ~2.4s, full record ~15.7s (≈5.6s on session reuse), logout ~6.8s._
+
+The first `CRMConnector` implementation drives a real browser. Design decisions:
 
 - **Page objects behind the connector**: each page family gets one module owning its
   selectors and parsing (`patient-search.page.ts`, `patient-profile.page.ts`, …).
@@ -264,11 +322,13 @@ test for this design. The `mock` connector (fixtures modeled on the exports, PII
 ships first and is what Sprint 4's matching engine develops against — matching does
 not wait for browser automation.
 
-## 8. Risks Before Implementation (Sprint 3)
+## 8. Risks Before LIVE Operation (implementation shipped in M0041)
 
 1. **Login page unexported** — auth flow (fields, CSRF, possible 2FA/captcha) is the
-   one part of the map we haven't seen. Capture it (plus an invoice detail page and a
-   multi-match search) before building. **Gating input.**
+   one part of the map we haven't seen. The v1 login selectors are conservative
+   provisional guesses with a minimal fingerprint (they fail loudly, never submit
+   blindly); capture the page (plus an invoice detail view and a multi-match search)
+   before unattended runs. **Gating input.**
 2. **USER-column semantics** (§3): aesthetician vs. encoder determines how logbook
    "therapist" matches — one question to clinic staff resolves it.
 3. **Service-account approval**: a dedicated read-only CRM login needs owner sign-off;

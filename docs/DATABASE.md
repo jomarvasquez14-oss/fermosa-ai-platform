@@ -15,6 +15,7 @@ erDiagram
     AuditSubmission ||--o{ LogbookImage : "owns (ordered)"
     AuditSubmission ||--o{ AuditFinding : "owns (canonical output)"
     AuditSubmission ||--o{ AuditTrailEntry : "records"
+    AuditSubmission ||--o{ AuditEvidenceSnapshot : "owns (append-only evidence)"
     User ||--o{ AuditTrailEntry : "acted by"
     User ||--o{ SystemSetting : "last updated by"
 
@@ -95,6 +96,21 @@ erDiagram
         datetime created_at
     }
 
+    AuditEvidenceSnapshot {
+        string id PK
+        string submission_id FK "Cascade (owned)"
+        string crm_patient_id "provenance string, NOT a FK"
+        json record "full NormalizedCrmPatientRecord (ADR-027)"
+        string content_hash "SHA-256, canonical sorted-key JSON"
+        string connector_kind
+        string selector_version
+        datetime retrieved_at
+        string window_from "nullable, yyyy-mm-dd"
+        string window_to "nullable, yyyy-mm-dd"
+        int snapshot_version "stored-format version"
+        datetime created_at
+    }
+
     SystemSetting {
         string id PK
         string key UK
@@ -104,7 +120,8 @@ erDiagram
     }
 ```
 
-All tables additionally carry `created_at` / `updated_at`.
+All tables additionally carry `created_at` / `updated_at` (append-only tables —
+`audit_trail_entries`, `audit_evidence_snapshots` — carry only `created_at`).
 
 Future tables — `ocr_results`, `crm_comparisons`, `audit_reports` — are fully specified
 in [DOMAIN_MODEL.md §3](DOMAIN_MODEL.md#3-entities) and are created when their milestone
@@ -131,6 +148,10 @@ ships (ADR-019: no speculative tables).
   Branch Managers get an assigned branch. Enforced at the application layer.
 - **`SystemSetting.value` is `Json`** so one table serves booleans, numbers, and
   structured config without migrations per setting.
+- **`audit_evidence_snapshots` is append-only evidence, not a CRM mirror** (M0043,
+  ADR-035): `crm_patient_id` is deliberately not a foreign key — no patient master
+  table exists. The `record` jsonb is sealed by `content_hash` (canonical sorted-key
+  SHA-256, because jsonb does not preserve key order) and re-verified on every load.
 - **Naming**: tables and columns use `snake_case` via `@@map`/`@map`; Prisma models stay
   `camelCase`.
 

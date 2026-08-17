@@ -36,7 +36,7 @@ export default async function CrmDevPage() {
     <>
       <PageHeader
         title="CRM Dev"
-        description="Internal developer tool: exercise the CRM connector seam against fixture data. No live CRM access."
+        description="Internal developer tool: exercise the CRM connector seam. Uses whichever connector CRM_CONNECTOR selects — mock fixtures by default, the LIVE CRM when set to playwright. For live validation prefer /dev/browser (credential badges, health probe, verification grades)."
       />
       <CrmDevScreen catalog={catalog} />
     </>

@@ -77,11 +77,22 @@ its own service later without untangling the codebase. See [DECISIONS.md](DECISI
 │   ├── *-service.ts         # Data-access services — the ONLY code importing Prisma
 │   ├── ai/                  # AIProvider seam: ocr-schema, prompts/ (versioned),
 │   │                        #   providers/mock (3.0); real providers in 3.x (§11)
-│   ├── crm/                 # CRMConnector strategy interface + factory (§11)
+│   ├── crm/                 # CRMConnector strategy interface + factory (§11);
+│   │                        #   snapshot/ — immutable audit evidence engine (M0043, ADR-035);
+│   │                        #   dataset/ — read-only CRM→disk dataset builder (M0045; sweep modes + enumeration + verify, M0050)
+│   │  audit-package/         #   reproducible, self-verifying audit evidence packages (M0051)
+│   │  dashboard/             #   role-scoped dashboard aggregation over real data (M0053)
+│   │  pipeline/              #   scheduled audit pipeline: cadence + stage runner, OCR wired-but-off (M0054)
+│   │  analytics/             #   operational analytics over stored snapshots, never live CRM (M0055)
+│   ├── report/              # Audit report generator: HTML/PDF/JSON from stored evidence (M0046)
 │   ├── audit/               # AuditService seam → orchestrator (ADR-029, §11)
 │   ├── orchestrator/        # Audit workflow engine: jobs, stages, state machine (3.6)
-│   ├── rules/               # Deterministic rule engine → findings (3.7, ADR-030)
-│   ├── browser/             # Browser automation framework, mock driver (3.9, ADR-031)
+│   ├── rules/               # Deterministic rule engine → findings (3.7, ADR-030;
+│   │                        #   +10 rules M0047, +7 rules M0052 → 30 total)
+│   ├── browser/             # Browser automation: driver seam, Playwright + mock drivers,
+│   │                        #   versioned selectors, page objects, session/navigation
+│   │                        #   (3.9 ADR-031; real driver M0041 ADR-033; selectors
+│   │                        #   capture-replay-verified M0042A ADR-036)
 │   └── storage/             # StorageProvider seam + local backend (2A.2, ADR-024)
 ├── hooks/ types/ utils/     # Shared hooks, global types, pure helpers
 ├── prisma/                  # schema.prisma, migrations, seed.ts
@@ -216,15 +227,15 @@ _(Introduced in Milestone 1.1 — see ADR-015…017.)_
 
 Capabilities that are external, swappable, or not yet built are consumed through
 **interfaces + factories** under `services/`; the application never depends on a concrete
-implementation. All three seams are interface-only today — factories throw
-`NotImplementedError` until their milestone lands.
+implementation. Factories throw `NotImplementedError` for strategies whose milestone
+has not landed yet.
 
-| Seam    | Interface                                                                                                                                              | Factory                | Strategies                                                                  | Selection                                   |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- | --------------------------------------------------------------------------- | ------------------------------------------- |
-| AI      | `AIProvider` — `extractLogbook`, `analyzeImage`, `generateSummary`; OCR design in [OCR_ARCHITECTURE.md](OCR_ARCHITECTURE.md) (ADR-026)                 | `getAIProvider()`      | **mock (shipped, 3.0)** → claude, openai-vision, gemini, azure-openai (3.x) | `AI_PROVIDER` env or explicit argument      |
-| CRM     | `CRMConnector` — `healthCheck`, `findPatients`, `fetchPatientRecord`; discovery design in [CRM_DISCOVERY.md](CRM_DISCOVERY.md) (ADR-027)               | `getCRMConnector()`    | **mock (shipped, 3.4)** → browser-automation (Sprint 3), api (future)       | `CRM_CONNECTOR` env or explicit argument    |
-| Audit   | `AuditService` — submission lifecycle + step pipeline (`AUDIT_STEPS`), first-class retry; domain model in [DOMAIN_MODEL.md](DOMAIN_MODEL.md) (ADR-023) | `getAuditService()`    | audit engine (M2)                                                           | —                                           |
-| Storage | `StorageProvider` — `put`, `get`, `exists`, `delete` over opaque keys (ADR-024)                                                                        | `getStorageProvider()` | **local (shipped, 2A.2)**; s3, azure-blob, gcs, r2, supabase (future)       | `STORAGE_PROVIDER` env or explicit argument |
+| Seam    | Interface                                                                                                                                              | Factory                | Strategies                                                                        | Selection                                                      |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| AI      | `AIProvider` — `extractLogbook`, `analyzeImage`, `generateSummary`; OCR design in [OCR_ARCHITECTURE.md](OCR_ARCHITECTURE.md) (ADR-026)                 | `getAIProvider()`      | **mock (shipped, 3.0)** → claude, openai-vision, gemini, azure-openai (3.x)       | `AI_PROVIDER` env or explicit argument                         |
+| CRM     | `CRMConnector` — `healthCheck`, `findPatients`, `fetchPatientRecord` (incl. read-only invoice detail + payments via embedded `data-details`, M0056/ADR-039), optional `listPatients` (enumeration, ADR-037); discovery design in [CRM_DISCOVERY.md](CRM_DISCOVERY.md) (ADR-027) | `getCRMConnector()`    | **mock (3.4)**, **browser-automation/Playwright (M0041, ADR-033) — production-ready (M0056)** → api (future) | `CRM_CONNECTOR` env (alias: `playwright`) or explicit argument |
+| Audit   | `AuditService` — submission lifecycle + step pipeline (`AUDIT_STEPS`), first-class retry; domain model in [DOMAIN_MODEL.md](DOMAIN_MODEL.md) (ADR-023) | `getAuditService()`    | audit engine (M2)                                                                 | —                                                              |
+| Storage | `StorageProvider` — `put`, `get`, `exists`, `delete` over opaque keys (ADR-024)                                                                        | `getStorageProvider()` | **local (shipped, 2A.2)**; s3, azure-blob, gcs, r2, supabase (future)             | `STORAGE_PROVIDER` env or explicit argument                    |
 
 Boundary rules (binding, see [PROJECT_RULES.md](PROJECT_RULES.md) and
 [services/README.md](../services/README.md)):
@@ -244,6 +255,14 @@ Boundary rules (binding, see [PROJECT_RULES.md](PROJECT_RULES.md) and
 Validated configuration for these seams (and everything else server-side) comes from
 `lib/config/env.ts` — a lazily-parsed, Zod-validated, `server-only` view of
 `process.env` that fails fast with precise messages.
+
+**Evidence, not replication (M0043, ADR-035):** the CRM remains the only source of
+truth for operational data — the platform has NO patient or treatment tables and never
+synchronizes the CRM. What audits need is preserved by `services/crm/snapshot/`:
+`AuditEvidenceSnapshot` rows (owned by `AuditSubmission`) store the full normalized
+record as hash-sealed, append-only evidence with provenance (connector kind, selector
+version, retrievedAt, window). Loading re-validates schema and hash; corrupt evidence
+fails loudly (`EVIDENCE_INVALID` / `EVIDENCE_INTEGRITY`).
 
 ## 12. Event Architecture
 

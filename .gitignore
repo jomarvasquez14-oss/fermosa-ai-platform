@@ -54,3 +54,11 @@ ocr-samples/
 # Authoritative CRM reference captures (real patient/staff PII — local only,
 # PROJECT_RULES 24). Ask the project lead before ever committing these.
 docs/crm-reference/
+
+# Generated CRM dataset output (M0045) — reproducible from the connector on
+# demand; never committed.
+datasets/
+
+# Generated audit packages (M0051) — reproducible evidence bundles built from
+# the read-only CRM; contain PII, never committed.
+audit-packages/

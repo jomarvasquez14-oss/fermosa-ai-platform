@@ -1,5 +1,6 @@
 import {
   Building2,
+  Camera,
   ClipboardCheck,
   DatabaseZap,
   FileBarChart,
@@ -8,6 +9,7 @@ import {
   LayoutDashboard,
   SearchCheck,
   Settings,
+  TrendingUp,
   Users,
   Contact,
   type LucideIcon,
@@ -42,6 +44,12 @@ export const MAIN_NAV: readonly NavItem[] = [
     icon: FileBarChart,
     roles: [ROLES.SUPER_ADMIN, ROLES.AUDITOR],
   },
+  {
+    title: "Analytics",
+    href: "/analytics",
+    icon: TrendingUp,
+    roles: [ROLES.SUPER_ADMIN, ROLES.AUDITOR],
+  },
   { title: "Branches", href: "/branches", icon: Building2 },
   { title: "Users", href: "/users", icon: Users, roles: [ROLES.SUPER_ADMIN] },
   { title: "Settings", href: "/settings", icon: Settings, roles: [ROLES.SUPER_ADMIN] },
@@ -61,6 +69,12 @@ export const MAIN_NAV: readonly NavItem[] = [
     title: "Browser Dev",
     href: "/dev/browser",
     icon: Globe,
+    roles: [ROLES.SUPER_ADMIN],
+  },
+  {
+    title: "Snapshot Dev",
+    href: "/dev/snapshot",
+    icon: Camera,
     roles: [ROLES.SUPER_ADMIN],
   },
 ];
