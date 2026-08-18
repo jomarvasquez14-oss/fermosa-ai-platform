@@ -16,6 +16,6 @@ export default NextAuth(authConfig).auth;
 export const config = {
   // Protect everything except Next.js internals, static assets, and the auth API.
   matcher: [
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!api/auth|api/health|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
